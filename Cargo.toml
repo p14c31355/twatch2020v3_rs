@@ -25,6 +25,9 @@ experimental = ["esp-idf-svc/experimental"]
 [dependencies]
 log = "0.4"
 esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+#下2桁ありの””なしはエラー
+esp-idf-hal = "0.45"
+esp-idf-sys = "0.36"
 
 [build-dependencies]
 embuild = "0.33"
