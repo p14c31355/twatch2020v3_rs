@@ -35,3 +35,4 @@ TTGO T-Watch 2020 v3 firmware written in Rustlang
 
 ## References
 https://lang-ship.com/blog/work/esp32-std-rust-1/
+https://github.com/pyaillet/twatch-idf-rs

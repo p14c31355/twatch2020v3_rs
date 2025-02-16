@@ -1,4 +1,4 @@
-use std::{time};
+use std::time;
 
 fn main() {
     // 今の時刻を取得
