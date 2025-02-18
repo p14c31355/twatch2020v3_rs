@@ -32,6 +32,7 @@ esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-
 #下2桁ありの””なしはエラー
 esp-idf-hal = "0.45"
 esp-idf-sys = "0.36"
+anyhow = {version = "1", features = ["backtrace"]}
 
 [build-dependencies]
 embuild = "0.33"
