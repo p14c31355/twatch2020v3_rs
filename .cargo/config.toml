@@ -3,7 +3,8 @@ target = "xtensa-esp32-espidf"
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"
-runner = "espflash flash --monitor"
+## add --list-all-ports because espflash::no_serial error
+runner = "espflash flash --monitor --list-all-ports"
 rustflags = [ "--cfg",  "espidf_time64"]
 
 [unstable]

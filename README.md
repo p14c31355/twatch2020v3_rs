@@ -36,6 +36,7 @@ TTGO T-Watch 2020 v3 firmware written in Rustlang
 ### install guide
 1.espup install
 ```
+cargo install ldproxy
 cargo install espup
 espup install
 source $HOME/export-esp.sh
@@ -44,7 +45,7 @@ cat $HOME/export-esp.sh >> ~/.bashrc
 2.cargo-generate install (option)
 ```
 cargo install cargo-generate
-cargo generate YOUR-PROJECT-NAME cargo
+cargo generate esp-rs/esp-idf-template cargo
 ```
 3.build (!!! ESSENTIAL !!!)
 ```
