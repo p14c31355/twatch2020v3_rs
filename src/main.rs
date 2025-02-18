@@ -1,5 +1,4 @@
 use std::time;
-use core::mem;
 
 fn main() {
     // 今の時刻を取得
