@@ -1,18 +1,18 @@
-pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<
-    'a,
-    std::sync::Mutex<EspI2c0>,
->;
+pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c0>>;
 
+use esp_idf_hal::{gpio, prelude::*};
 use std::time;
-use esp_idf_hal::prelude::*;
 
-pub type EspI2c0 =
-    esp_idf_hal::i2c::Master<i2c::I2C0, gpio::Gpio21<gpio::Output>, gpio::Gpio22<gpio::Output>>;
+pub type EspI2c0 = esp_idf_hal::i2c::Master<
+    gpio::Gpio35<gpio::Output>,
+    gpio::Gpio21<gpio::Output>,
+    gpio::Gpio22<gpio::Output>,
+>;
 
 use crate::types::EspSharedBusI2c0;
 
 pub struct Hal {
-    pub motor: gpio::Gpio4<Output> // define Vibration motor
+    pub motor: gpio::Gpio4<Output>, // define Vibration motor
 }
 
 pub struct Pmu<'a> {
@@ -22,8 +22,10 @@ pub struct Pmu<'a> {
 impl Twatch {
     pub fn new(peripherals: Peripherals) -> Self {
         let pins = peripherals.pins;
-        let motor = pins.gpio4.into_output().expect("Unable to set gpio4 to output");
-
+        let motor = pins
+            .gpio4
+            .into_output()
+            .expect("Unable to set gpio4 to output");
     }
 }
 
@@ -61,6 +63,4 @@ fn main() {
 
 pub fn button_to_motor(&mut self) -> Result<()> {
     Ok(())
-
-    
 }
