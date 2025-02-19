@@ -1,4 +1,17 @@
 use std::time;
+use esp_idf_hal::prelude::*;
+
+pub struct Hal {
+    pub motor: gpio::Gpio4<Output> // define Vibration motor
+}
+
+impl Twatch {
+    pub fn new(peripherals: Peripherals) -> Self {
+        let pins = peripherals.pins;
+        let motor = pins.gpio4.into_output().expect("Unable to set gpio4 to output");
+
+    }
+}
 
 fn main() {
     // 今の時刻を取得
@@ -14,4 +27,10 @@ fn main() {
     log::info!("Hello, world!");
     // 最初の時刻からの経過時間を表示
     println!("{:?}", now.elapsed());
+}
+
+pub fn button_to_motor(&mut self) -> Result<()> {
+    Ok(())
+
+    
 }

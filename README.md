@@ -3,7 +3,7 @@ TTGO T-Watch 2020 v3 firmware written in Rustlang
 
 ### I/Os
  - Interrupt RTC: IO37
- - PMU/AXP202
+ - PMU/AXP202(Button)
    - interrupt IO35
    - I2C_SDA IO21
    - I2C_SCL IO22
@@ -59,3 +59,7 @@ https://lang-ship.com/blog/work/esp32-std-rust-1/
 https://github.com/pyaillet/twatch-idf-rs
 <br>
 https://note.com/shirokumamake/n/na6c2897b9f82
+<br>
+https://github.com/esp-rs/esp-template/issues/57
+<br>
+https://www.reddit.com/r/esp32/comments/1b5q8j4/anybody_know_which_gpio_pin_the_physical_button/
