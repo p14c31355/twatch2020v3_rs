@@ -2,6 +2,7 @@ pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c
 
 use esp_idf_hal::{gpio, prelude::*};
 use std::time;
+use crate::gpio::Output;
 
 pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio35<gpio::Output>,
@@ -9,7 +10,6 @@ pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio22<gpio::Output>,
 >;
 
-use crate::types::EspSharedBusI2c0;
 
 pub struct Hal {
     pub motor: gpio::Gpio4<Output>, // define Vibration motor
