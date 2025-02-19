@@ -1,8 +1,22 @@
+pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<
+    'a,
+    std::sync::Mutex<EspI2c0>,
+>;
+
 use std::time;
 use esp_idf_hal::prelude::*;
 
+pub type EspI2c0 =
+    esp_idf_hal::i2c::Master<i2c::I2C0, gpio::Gpio21<gpio::Output>, gpio::Gpio22<gpio::Output>>;
+
+use crate::types::EspSharedBusI2c0;
+
 pub struct Hal {
     pub motor: gpio::Gpio4<Output> // define Vibration motor
+}
+
+pub struct Pmu<'a> {
+    axp20x: axp20x::Axpxx<EspSharedBusI2c0<'a>>,
 }
 
 impl Twatch {
@@ -10,6 +24,22 @@ impl Twatch {
         let pins = peripherals.pins;
         let motor = pins.gpio4.into_output().expect("Unable to set gpio4 to output");
 
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub enum State {
+    On,
+    Off,
+}
+
+impl From<State> for axp20x::PowerState {
+    fn from(state: State) -> Self {
+        match state {
+            State::On => axp20x::PowerState::On,
+            State::Off => axp20x::PowerState::Off,
+        }
     }
 }
 
