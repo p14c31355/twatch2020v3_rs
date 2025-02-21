@@ -1,8 +1,10 @@
 pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c0>>;
 
-use esp_idf_hal::{gpio, prelude::*};
-use std::time;
 use crate::gpio::Output;
+use embedded_graphics::prelude::*;
+use esp_idf_hal::{gpio, prelude::*};
+use log::*;
+use std::time;
 
 pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio35<gpio::Output>,
@@ -10,15 +12,31 @@ pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio22<gpio::Output>,
 >;
 
+pub type EspSpi2InterfaceNoCS = SPIInterfaceNoCS<
+    spi::Master<
+        spi::SPI3,
+        gpio::Gpio18<Output>,
+        gpio::Gpio19<Output>,
+        gpio::Gpio23<Output>,
+        gpio::Gpio5<Output>,
+    >,
+    gpio::Gpio27<Output>,
+>;
+
+pub struct TwatchDisplay {
+    pub display: Display<EspSpi2InterfaceNoCS, mipidsi::NoPin, mipidsi::models::ST7789>,
+    pub backlight: Backlight,
+    pub framebuffer: &'static mut FrameBuf<Rgb565, 240_usize, 240_usize, 57600_usize>,
+}
 
 pub struct Hal {
     pub motor: gpio::Gpio4<Output>, // define Vibration motor
 }
-
+/*
 pub struct Pmu<'a> {
     axp20x: axp20x::Axpxx<EspSharedBusI2c0<'a>>,
 }
-
+*/
 impl Twatch {
     pub fn new(peripherals: Peripherals) -> Self {
         let pins = peripherals.pins;
@@ -35,7 +53,7 @@ pub enum State {
     On,
     Off,
 }
-
+/*
 impl From<State> for axp20x::PowerState {
     fn from(state: State) -> Self {
         match state {
@@ -44,6 +62,7 @@ impl From<State> for axp20x::PowerState {
         }
     }
 }
+*/
 
 fn main() {
     // 今の時刻を取得
@@ -61,6 +80,8 @@ fn main() {
     println!("{:?}", now.elapsed());
 }
 
+/*
 pub fn button_to_motor(&mut self) -> Result<()> {
     Ok(())
 }
+*/

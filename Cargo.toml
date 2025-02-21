@@ -22,12 +22,16 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
-log = "0.4"
+log = "0.4.26"
 esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
-#下2桁ありの””なしはエラー
 esp-idf-hal = "0.45.2"
 esp-idf-sys = "0.36.1"
-anyhow = {version = "1", features = ["backtrace"]}
+mipidsi = "0.9.0"
+embedded-graphics-core = { version = "0.4.0" }
+embedded-graphics = { version = "0.8.1" }
+embedded-graphics-framebuf = "0.5.0"
+egui = "0.31.0"
+display-interface-spi = { version = "0.5.0" }
 
 [build-dependencies]
 embuild = "0.33"
