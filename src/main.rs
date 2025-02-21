@@ -3,11 +3,11 @@ pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c
 use crate::gpio::Output;
 use embedded_graphics::prelude::*;
 use embedded_graphics_framebuf::FrameBuf;
+use esp_idf_hal::spi;
 use esp_idf_hal::{gpio, prelude::*};
 use log::*;
-use std::time;
-use esp_idf_hal::spi;
 use mipidsi::*;
+use std::time;
 
 pub type EspI2c0 = esp_idf_hal::i2c<
     gpio::Gpio35<gpio::Output>,
@@ -29,7 +29,7 @@ pub type EspSpi2Interface = SPIInterface<
 pub struct TwatchDisplay {
     pub display: Display<EspSpi2InterfaceNoCS, mipidsi::NoPin, mipidsi::models::ST7789>,
     pub backlight: Backlight,
-    pub framebuffer: &'static mut FrameBuf<Rgb565, 57600_usize>
+    pub framebuffer: &'static mut FrameBuf<Rgb565, 57600_usize>,
 }
 
 impl DrawTarget for TwatchDisplay {
