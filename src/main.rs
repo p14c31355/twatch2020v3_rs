@@ -2,9 +2,12 @@ pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c
 
 use crate::gpio::Output;
 use embedded_graphics::prelude::*;
+use embedded_graphics_framebuf::FrameBuf;
 use esp_idf_hal::{gpio, prelude::*};
 use log::*;
 use std::time;
+use esp_idf_hal::spi;
+use mipidsi::prelude::*;
 
 pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio35<gpio::Output>,
@@ -28,11 +31,11 @@ pub struct TwatchDisplay {
     pub backlight: Backlight,
     pub framebuffer: &'static mut FrameBuf<Rgb565, 240_usize, 240_usize, 57600_usize>,
 }
-
+/*
 pub struct Hal {
     pub motor: gpio::Gpio4<Output>, // define Vibration motor
 }
-/*
+
 pub struct Pmu<'a> {
     axp20x: axp20x::Axpxx<EspSharedBusI2c0<'a>>,
 }
@@ -40,10 +43,12 @@ pub struct Pmu<'a> {
 impl Twatch {
     pub fn new(peripherals: Peripherals) -> Self {
         let pins = peripherals.pins;
+        /*
         let motor = pins
             .gpio4
             .into_output()
             .expect("Unable to set gpio4 to output");
+        */
     }
 }
 
