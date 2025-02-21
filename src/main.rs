@@ -7,7 +7,7 @@ use esp_idf_hal::{gpio, prelude::*};
 use log::*;
 use std::time;
 use esp_idf_hal::spi;
-use mipidsi::prelude::*;
+use mipidsi::*;
 
 pub type EspI2c0 = esp_idf_hal::i2c::Master<
     gpio::Gpio35<gpio::Output>,
@@ -29,7 +29,7 @@ pub type EspSpi2InterfaceNoCS = SPIInterfaceNoCS<
 pub struct TwatchDisplay {
     pub display: Display<EspSpi2InterfaceNoCS, mipidsi::NoPin, mipidsi::models::ST7789>,
     pub backlight: Backlight,
-    pub framebuffer: &'static mut FrameBuf<Rgb565, 240_usize, 240_usize, 57600_usize>,
+    pub framebuffer: &'static mut FrameBuf<Rgb565, 57600_usize>
 }
 /*
 pub struct Hal {
@@ -40,6 +40,7 @@ pub struct Pmu<'a> {
     axp20x: axp20x::Axpxx<EspSharedBusI2c0<'a>>,
 }
 */
+
 impl Twatch {
     pub fn new(peripherals: Peripherals) -> Self {
         let pins = peripherals.pins;
