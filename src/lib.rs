@@ -1,5 +1,4 @@
-use std::time::Instant;
-
+use chrono::Instant;
 use button_driver::{Button, ButtonConfig};
 use esp_idf_hal::{gpio::PinDriver, prelude::Peripherals};
 use esp_idf_sys::EspError;
@@ -9,7 +8,7 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio9)?;
+    let pin = PinDriver::input(peripherals.pins.gpio35)?;
 
     let mut button = Button::<_, Instant>::new(pin, ButtonConfig::default());
 
