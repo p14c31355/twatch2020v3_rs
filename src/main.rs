@@ -1,11 +1,17 @@
 use std::time::Instant;
 use std::time::Duration;
 
-use button_driver::{Button, ButtonConfig};
-use esp_idf_hal::gpio::PinDriver;
+use button_driver::{Button, ButtonConfig, PinWrapper};
+use esp_idf_hal::gpio::*;
 use esp_idf_hal::prelude::*;
 use esp_idf_sys::EspError;
 use log::info;
+
+impl<MODE: InputPin> PinWrapper for PinDriver<'_, Gpio35, MODE> {
+    fn is_high(&self) -> bool {
+        self.is_high().unwrap_or(false)
+    }
+}
 
 fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -30,7 +36,7 @@ fn main() -> Result<(), EspError> {
     }
 }
 
-fn log_button_event(button: &Button<PinDriver, Instant>, held_dur: Option<Duration>) {
+fn log_button_event(button: &Button<PinDriver<'_, Gpio35, Input>, Instant>, held_dur: Option<Duration>) {
     let held_str = held_dur.map(|dur| format!(" + held {:?}", dur)).unwrap_or_default();
 
     if button.is_clicked() {
