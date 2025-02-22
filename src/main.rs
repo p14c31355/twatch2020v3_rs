@@ -1,4 +1,6 @@
 // pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c0>>;
+/*/
+pub mod errors;
 
 pub use crate::errors::*;
 use crate::gpio::Output;
@@ -236,4 +238,5 @@ fn main() {
 pub fn button_to_motor(&mut self) -> Result<()> {
     Ok(())
 }
+*/
 */
