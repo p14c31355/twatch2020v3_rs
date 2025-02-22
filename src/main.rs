@@ -22,7 +22,7 @@ struct MyPinWrapper<'a, T: InputPin> {
 //PinWrapperトレイトをMyPinWrapperに実装する。
 impl<'a, T: InputPin> PinWrapper for MyPinWrapper<'a, T> {
     //PinWrapperトレイトのメソッドを実装する。
-    fn is_high(&self) -> bool {
+    fn is_high(&mut self) -> bool {
         self.pin.is_high().unwrap_or(false)
     }
     //他のPinWrapperトレイトのメソッドを実装する。
@@ -34,7 +34,7 @@ fn main() -> Result<(), EspError> {
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
     let my_pin = MyPinWrapper { pin };
-    let mut button = Button::new(my_pin, ButtonConfig::default());
+    let mut button: button_driver::Button<MyPinWrapper<'_, Gpio35>, I> = Button::new(my_pin, ButtonConfig::default());
 
 loop {
     button.tick();
