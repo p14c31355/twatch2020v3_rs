@@ -32,7 +32,7 @@ embedded-graphics = { version = "0.8.1" }
 embedded-graphics-framebuf = "0.5.0"
 egui = "0.31.0"
 display-interface-spi = { version = "0.5.0" }
-button-driver = "0.2.2"
+button-driver = { version = "0.2.2", features = ["std"] }
 chrono = "0.4"
 
 [build-dependencies]
