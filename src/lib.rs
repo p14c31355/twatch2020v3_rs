@@ -1,6 +1,6 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use button_driver::{Button, ButtonConfig, InstantProvider};
+use button_driver::{Button, ButtonConfig};
 use esp_idf_hal::{gpio::PinDriver, prelude::Peripherals};
 use esp_idf_sys::EspError;
 use log::info;
@@ -9,9 +9,9 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio35)?;
+    let pin = PinDriver::input(peripherals.pins.gpio9)?;
 
-    let mut button = Button::<_, Duration>::new(pin, ButtonConfig::default());
+    let mut button = Button::<_, Instant>::new(pin, ButtonConfig::default());
 
     loop {
         button.tick();
