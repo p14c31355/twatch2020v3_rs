@@ -1,9 +1,10 @@
-pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c0>>;
+// pub type EspSharedBusI2c0<'a> = shared_bus::I2cProxy<'a, std::sync::Mutex<EspI2c0>>;
 
+pub use crate::errors::*;
 use crate::gpio::Output;
 use embedded_graphics::prelude::*;
 use embedded_graphics_framebuf::FrameBuf;
-use esp_idf_hal::spi;
+use enbedded_hal::spi;
 use esp_idf_hal::{gpio, prelude::*};
 use log::*;
 use mipidsi::*;
@@ -77,10 +78,9 @@ impl Backlight {
 }
 
 impl TwatchDisplay {
-    pub fn new(di: EspSpi2InterfaceNoCS, backlight: Backlight) -> Result<Self> {
+    pub fn new(di: EspSpi2InterfaceNoCS, backlight: Backlight) -> Result<Self, E> {
         let display = Display::st7789_without_rst(di);
-        static mut FBUFF: FrameBuf<Rgb565, 240_usize, 240_usize, 57_600_usize> =
-            FrameBuf([Rgb565::BLACK; 57_600]);
+        static mut FBUFF: FrameBuf<Rgb565, 57_600_usize> = FrameBuf([Rgb565::BLACK; 57_600]);
         let framebuffer = unsafe { &mut FBUFF };
 
         Ok(Self {
@@ -89,7 +89,7 @@ impl TwatchDisplay {
             framebuffer,
         })
     }
-    pub fn init(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<()> {
+    pub fn init(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<(), E> {
         let display_options = DisplayOptions {
             color_order: ColorOrder::Bgr,
             ..Default::default()
@@ -103,7 +103,7 @@ impl TwatchDisplay {
         Ok(())
     }
 
-    pub fn commit_display_partial(&mut self, rect: Rectangle) -> Result<()> {
+    pub fn commit_display_partial(&mut self, rect: Rectangle) -> Result<(), E> {
         if rect.size == self.bounding_box().size {
             self.display
                 .write_raw(
@@ -140,7 +140,7 @@ impl TwatchDisplay {
         Ok(())
     }
 
-    pub fn commit_display(&mut self) -> Result<()> {
+    pub fn commit_display(&mut self) -> Result<(), E> {
         self.commit_display_partial(Rectangle {
             top_left: Point::default(),
             size: Size {
@@ -157,7 +157,7 @@ impl TwatchDisplay {
         self.backlight.level
     }
 
-    pub fn set_display_level<I: Into<u32>>(&mut self, level: I) -> Result<()> {
+    pub fn set_display_level<I: Into<u32>>(&mut self, level: I) -> Result<(), E> {
         self.backlight.level = level.into();
         let max_duty = self.backlight.channel.get_max_duty();
         self.backlight
@@ -166,12 +166,12 @@ impl TwatchDisplay {
         Ok(())
     }
 
-    pub fn set_display_on(&mut self) -> Result<()> {
+    pub fn set_display_on(&mut self) -> Result<(), E> {
         self.set_display_level(100u32)?;
         Ok(())
     }
 
-    pub fn set_display_off(&mut self) -> Result<()> {
+    pub fn set_display_off(&mut self) -> Result<(), E> {
         self.set_display_level(0u32)?;
         Ok(())
     }
