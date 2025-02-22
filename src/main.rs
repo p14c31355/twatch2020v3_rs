@@ -20,33 +20,14 @@ fn main() -> Result<(), EspError> {
 
     let mut button = Button::new(pin, ButtonConfig::default());
 
-    loop {
-        button.tick();
+loop {
+    button.tick();
+     
+    if button.is_clicked() {
+        println!("Clicked!");
+    }
 
-        if let Some(dur) = button.held_time() {
-            info!("Total holding time {:?}", dur);
+    button.reset();
 
-            if button.is_clicked() {
-                info!("Clicked + held");
-            } else if button.is_double_clicked() {
-                info!("Double clicked + held");
-            } else if button.holds() == 2 && button.clicks() > 0 {
-                info!("Held twice with {} clicks", button.clicks());
-            } else if button.holds() == 2 {
-                info!("Held twice");
-            }
-        } else {
-            if button.is_clicked() {
-                info!("Click");
-            } else if button.is_double_clicked() {
-                info!("Double click");
-            } else if button.is_triple_clicked() {
-                info!("Triple click");
-            } else if let Some(dur) = button.current_holding_time() {
-                info!("Held for {:?}", dur);
-            }
-        }
-
-        button.reset();
     }
 }
