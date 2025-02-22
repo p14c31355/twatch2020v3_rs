@@ -9,8 +9,10 @@ fn main() -> Result<(), EspError> {
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
 
     loop {
-        if pin.is_low() {
+        if pin.is_high() {
             println!("HelloButton!")
+        } else {
+            
         }
     }
 }
