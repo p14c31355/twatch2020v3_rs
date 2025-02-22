@@ -1,7 +1,11 @@
+#[warn(unused_imports)]
 use button_driver::{Button, ButtonConfig};
 use esp_idf_hal::{gpio::PinDriver, prelude::Peripherals};
 use esp_idf_sys::EspError;
 use log::info;
+use esp_idf_hal::gpio::InputPin;
+use esp_idf_hal::gpio::Input;
+use button_driver::PinWrapper;
 
 /*
 impl Button for Instant {
