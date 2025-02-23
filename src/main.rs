@@ -9,13 +9,14 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio9)?;
+    let pin = PinDriver::input(peripherals.pins.gpio35)?;
     let mut last_state = pin.is_high();
     let debounce_delay = Duration::from_millis(50);
 
-    let timer = <dyn Timer>::new(peripherals.timer00)?;
+    // Timer トレイトを直接インスタンス化するのではなく、周辺機器から取得したタイマーインスタンスを使用する
+    let timer = peripherals.timer00;
     let mut timer_driver = TimerDriver::new(timer, &Config::default())?;
-    timer_driver.enable(true)?; // trueを渡してタイマーを有効にする
+    timer_driver.enable(true)?; // true を渡してタイマーを有効にする
 
     let mut last_click_time = timer_driver.counter()?;
     let double_click_interval = Duration::from_millis(300);
