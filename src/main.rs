@@ -16,28 +16,16 @@ fn main() -> Result<(), EspError> {
     EspLogger::initialize_default();
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
-    let mut last_state = match pin.is_low() {
-        Ok(true) => State::On,
-        Ok(false) => State::Off,
-        Err(e) => return Err(e),
-    };
+    let mut last_state = get_state(&pin)?; // 関数を使用して状態を取得
     let debounce_delay = Duration::from_millis(50);
     let loop_delay = Duration::from_millis(10);
 
     loop {
-        let current_state = match pin.is_low() {
-            Ok(true) => State::On,
-            Ok(false) => State::Off,
-            Err(e) => return Err(e),
-        };
+        let current_state = get_state(&pin)?; // 関数を使用して状態を取得
 
         if current_state != last_state {
             thread::sleep(debounce_delay);
-            let debounced_state = match pin.is_low() {
-                Ok(true) => State::On,
-                Ok(false) => State::Off,
-                Err(e) => return Err(e),
-            };
+            let debounced_state = get_state(&pin)?; // 関数を使用して状態を取得
             if debounced_state == current_state {
                 if current_state == State::On {
                     info!("HelloButton!");
@@ -46,5 +34,14 @@ fn main() -> Result<(), EspError> {
             }
         }
         thread::sleep(loop_delay);
+    }
+}
+
+// ピンの状態を取得する関数
+fn get_state(pin: &PinDriver<esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>) -> Result<State, EspError> {
+    match pin.is_low() {
+        Ok(true) => Ok(State::On),
+        Ok(false) => Ok(State::Off),
+        Err(e) => Err(e),
     }
 }
