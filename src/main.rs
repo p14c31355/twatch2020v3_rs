@@ -6,13 +6,12 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio35)?;
+    let pin = PinDriver::input(peripherals.pins.gpio22)?;
 
-    loop {
         if pin.is_high() {
-            println!("HelloButton!")
+                    
         } else {
-            
+            println!("HelloButton!")
         }
-    }
+        Ok(())
 }
