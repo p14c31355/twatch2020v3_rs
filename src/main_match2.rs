@@ -18,31 +18,21 @@ fn main() -> Result<(), EspError> {
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
 
-    let mut last_state = match pin.is_low() {
-        Ok(true) => State::On,
-        Ok(false) => State::Off,
-        Err(e) => return Err(e), // エラーが発生した場合は早期リターン
-    };
+    let mut last_state = if pin.is_low() { State::On } else { State::Off };
     let debounce_delay = Duration::from_millis(50);
 
     loop {
-        let current_state = match pin.is_low() {
-            Ok(true) => State::On,
-            Ok(false) => State::Off,
-            Err(e) => return Err(e),
-        };
+        let current_state = if pin.is_low() { State::On } else { State::Off };
 
         match current_state {
             state if state == last_state => {
+                // 状態が変わっていない場合は何もしない
                 thread::sleep(Duration::from_millis(10));
             }
             state => {
+                // 状態が変わった場合
                 thread::sleep(debounce_delay);
-                let debounced_state = match pin.is_low() {
-                    Ok(true) => State::On,
-                    Ok(false) => State::Off,
-                    Err(e) => return Err(e),
-                };
+                let debounced_state = if pin.is_low() { State::On } else { State::Off };
                 if debounced_state == state {
                     match state {
                         State::On => info!("HelloButton!"),
