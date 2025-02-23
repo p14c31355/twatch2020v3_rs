@@ -6,15 +6,10 @@ use log::*; // log levelを使う為に必要
 use std::time::Duration;
 use std::thread;
 
-enum State {
-    On,
-    Off,
-}
-
 // let on = State::On = pin.is_low();
 // let off = State::Off = pin.is_high();
 
-fn main() -> Result<(), EspError> {
+fn main() -> bool {
     EspLogger::initialize_default(); // ロギングの初期化
 
     let peripherals = Peripherals::take().unwrap();
@@ -24,12 +19,10 @@ fn main() -> Result<(), EspError> {
     let debounce_delay = Duration::from_millis(50); // チャタリング対策の遅延
 
     loop {
-        let current_state = off; // 現在の状態を取得
-
-        fn button_state(state: State) -> bool {
-            match state {
-                State::On => info!("HelloButton!"),
-                State::Off => thread::sleep(Duration::from_millis(10)),
+        let current_state = pin.is_high(); // 現在の状態を取得
+            match  {
+                pin.is_low() => info!("HelloButton!"),
+                pin.is_high() => thread::sleep(Duration::from_millis(10)),
                 }
         } 
         /*
