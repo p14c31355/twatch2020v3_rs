@@ -1,4 +1,4 @@
-use esp_idf_svc::timer::EspTimer;
+use esp_idf_hal::timer::{Timer, TimerDriver, config::Config};
 use esp_idf_hal::{gpio::PinDriver, prelude::Peripherals};
 use esp_idf_sys::EspError;
 use log::info;
@@ -9,10 +9,15 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio35)?;
+    let pin = PinDriver::input(peripherals.pins.gpio9)?;
     let mut last_state = pin.is_high();
     let debounce_delay = Duration::from_millis(50);
-    let mut last_click_time = EspTimer::new()?;
+
+    let timer = <dyn Timer>::new(peripherals.timer00)?;
+    let mut timer_driver = TimerDriver::new(timer, &Config::default())?;
+    timer_driver.enable(true)?; // trueを渡してタイマーを有効にする
+
+    let mut last_click_time = timer_driver.counter()?;
     let double_click_interval = Duration::from_millis(300);
     let mut click_count = 0;
 
@@ -23,17 +28,17 @@ fn main() -> Result<(), EspError> {
             if pin.is_low() == current_state {
                 last_state = current_state;
                 if current_state {
-                    let now = EspTimer::new()?;
-                    let elapsed = now.elapsed() - last_click_time.elapsed();
-                    if elapsed < double_click_interval{
+                    let now = timer_driver.counter()?;
+                    let elapsed = now - last_click_time;
+                    if elapsed < double_click_interval.as_micros() as u64 {
                         click_count += 1;
                         info!("double click");
-                    }else{
+                    } else {
                         click_count = 1;
                         info!("click");
                     }
                     last_click_time = now;
-                }else{
+                } else {
                     info!("button released");
                 }
             }
