@@ -18,39 +18,22 @@ fn main() -> Result<(), EspError> {
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
 
-    let mut last_state = match pin.is_low() {
-        Ok(true) => State::On,
-        Ok(false) => State::Off,
-        Err(e) => return Err(e), // エラーが発生した場合は早期リターン
-    };
+    let mut last_state = pin.is_low().map(|low| if low { State::On } else { State::Off })?;
     let debounce_delay = Duration::from_millis(50);
 
     loop {
-        let current_state = match pin.is_low() {
-            Ok(true) => State::On,
-            Ok(false) => State::Off,
-            Err(e) => return Err(e),
-        };
+        let current_state = pin.is_low().map(|low| if low { State::On } else { State::Off })?;
 
-        match current_state {
-            state if state == last_state => {
-                thread::sleep(Duration::from_millis(10));
-            }
-            state => {
-                thread::sleep(debounce_delay);
-                let debounced_state = match pin.is_low() {
-                    Ok(true) => State::On,
-                    Ok(false) => State::Off,
-                    Err(e) => return Err(e),
-                };
-                if debounced_state == state {
-                    match state {
-                        State::On => info!("HelloButton!"),
-                        State::Off => {}
-                    }
-                    last_state = state;
+        if current_state != last_state {
+            thread::sleep(debounce_delay);
+            let debounced_state = pin.is_low().map(|low| if low { State::On } else { State::Off })?;
+            if debounced_state == current_state {
+                if current_state == State::On {
+                    info!("HelloButton!");
                 }
+                last_state = current_state;
             }
         }
+        thread::sleep(Duration::from_millis(10));
     }
 }
