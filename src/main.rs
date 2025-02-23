@@ -1,26 +1,20 @@
-use esp_idf_hal::prelude::*;
-use esp_idf_hal::gpio::PinDriver;
-use esp_idf_sys::EspError; // ?を使用するために必要
-use esp_idf_svc::log::*;
-use log::*;
-use std::time::Duration;
-use std::thread;
-use std::time::Instant;
-
+use esp_idf_svc::timer::EspTimer; // 正しいインポート
 use button_driver::{Button, ButtonConfig};
+use esp_idf_hal::{gpio::PinDriver, prelude::Peripherals};
+use esp_idf_sys::EspError;
+use log::info;
 
 fn main() -> Result<(), EspError> {
-    EspLogger::initialize_default();
+    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?;
 
-    let mut button = Button::<_, Instant>::new(pin, ButtonConfig::default());
+    let mut button = Button::<_, EspTimer>::new(pin, ButtonConfig::default());
 
     loop {
-        button.tick();
-
-        if let Some(dur) = button.held_time() {
+    button.tick();
+    if let Some(dur) = button.held_time() {
             info!("Total holding time {:?}", dur);
 
             if button.is_clicked() {
@@ -43,7 +37,6 @@ fn main() -> Result<(), EspError> {
                 info!("Held for {:?}", dur);
             }
         }
-
-        button.reset();
+    button.reset();
     }
 }
