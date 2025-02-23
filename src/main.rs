@@ -8,25 +8,25 @@ fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut pin = PinDriver::input(peripherals.pins.gpio35)?; //ピン番号を適切に変更
+    let pin = PinDriver::input(peripherals.pins.gpio35)?; //ピン番号を適切に変更
 
     let mut last_state = pin.is_low(); // 初期状態を保存
     let debounce_delay = Duration::from_millis(50); // チャタリング対策の遅延
 
     loop {
-        let current_state = pin.is_low(); // 現在の状態を取得
+        let current_state = pin.is_low();
 
-        if current_state != last_state {
-            // 状態が変化した場合、チャタリング対策の遅延
-            thread::sleep(debounce_delay);
-            if pin.is_low() == current_state {
-                // 遅延後も状態が変わらなければ、有効な状態変化とみなす
-                if current_state {
-                    println!("HelloButton!");
-                }
-                last_state = current_state; // 状態を更新
+    if current_state != last_state {
+        // 状態が変化した場合、チャタリング対策の遅延
+        thread::sleep(debounce_delay);
+        if pin.is_low() == current_state {
+            // 遅延後も状態が変わらなければ、有効な状態変化とみなす
+            if current_state {
+                println!("HelloButton!");
             }
+            last_state = current_state; // 状態を更新
         }
-        thread::sleep(Duration::from_millis(10)); // 状態確認の間隔
+    }
+    thread::sleep(Duration::from_millis(10)); // 状態確認の間隔
     }
 }
