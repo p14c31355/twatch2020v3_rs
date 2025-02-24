@@ -1,5 +1,5 @@
 use esp_idf_svc::hal::{
-    gpio::{Gpio35, Input, Pin, Pull},
+    gpio::{Gpio21, Input, Pin, Pull},
     peripherals::Peripherals,
 };
 use esp_idf_svc::eventloop::*;
@@ -15,7 +15,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let pin = peripherals.pins.gpio35.into_input()?;
+    let pin = peripherals.pins.gpio21.into_input()?;
     let mut button = esp_idf_svc::hal::gpio::PinDriver::input(pin)?;
     button.set_pull(Pull::Up)?;
 
