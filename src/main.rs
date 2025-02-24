@@ -1,26 +1,47 @@
-use esp_idf_hal::gpio::*;
-use esp_idf_hal::prelude::*;
-use esp_idf_sys::*;
+use esp_idf_svc::hal::{
+    gpio::{Gpio35, Input, Pin, Pull},
+    peripherals::Peripherals,
+};
+use esp_idf_svc::eventloop::*;
+use esp_idf_svc::sys::*;
 use log::*;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 fn main() -> anyhow::Result<()> {
+    // 初期化
+    esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    // Gpio35ピンを入力モードで内部プルアップを有効にして設定
-    let mut button = PinDriver::input(peripherals.pins.gpio35)?;
+    let pin = peripherals.pins.gpio35.into_input()?;
+    let mut button = esp_idf_svc::hal::gpio::PinDriver::input(pin)?;
+    button.set_pull(Pull::Up)?;
 
-    unsafe {
-        gpio_set_intr_type(button.pin(), gpio_int_type_t_GPIO_INTR_NEGEDGE);
-        gpio_intr_enable(1 << button.pin());
-        gpio_isr_handler_add(button.pin(), Some(isr_handler), std::ptr::null_mut());
+    // イベントループの初期化
+    let event_loop = EspSystemEventLoop::take()?;
+
+    // 割り込みハンドラの初期化
+    let button_pressed = Arc::new(Mutex::new(false));
+    let button_pressed_clone = button_pressed.clone();
+
+    // 割り込み設定
+    button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
+    unsafe { button.subscribe(move || {
+        let mut pressed = button_pressed_clone.lock().unwrap();
+        *pressed = true;
+    }) }?;
+
+    // メインループ
+    loop {
+        {
+            let mut pressed = button_pressed.lock().unwrap();
+            if *pressed {
+                info!("Button Pressed!");
+                *pressed = false;
+            }
+        }
+        thread::sleep(Duration::from_millis(100));
     }
-
-    extern "C" fn isr_handler(_: *mut std::ffi::c_void) {
-        info!("Button pressed!");
-    }
-
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-    
-    Ok(())
 }
