@@ -17,7 +17,9 @@ impl ThreadSafeButton {
     }
 
     async fn update(&self) -> ButtonEvent {
-        self.button.lock().unwrap().update().await
+        let mut button_lock = self.button.lock().unwrap(); // MutexGuardを保持
+        let event = button_lock.update(); // MutexGuardのスコープ内でupdate()を呼び出す
+        event.await
     }
 }
 
