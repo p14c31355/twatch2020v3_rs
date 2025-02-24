@@ -7,9 +7,9 @@ use async_std::channel::{bounded, Sender};
 use std::time::Duration;
 
 async fn monitor_gpio(pin: PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>, tx: Sender<bool>) {
-    let mut last_state = pin.is_high();
+    let mut last_state = pin.is_low();
     loop {
-        let current_state = pin.is_high();
+        let current_state = pin.is_low();
         if current_state != last_state {
             if tx.send(current_state).await.is_ok() {
                 last_state = current_state;
