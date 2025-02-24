@@ -1,42 +1,38 @@
-use esp_idf_hal::gpio::PinDriver;
-use esp_idf_sys::EspError;
+use esp_idf_hal::gpio::*;
+use esp_idf_hal::prelude::*;
+use esp_idf_sys::*;
 use log::info;
-use async_button::*;
 use tokio;
-use std::sync::{Arc, Mutex};
-
-struct ThreadSafeButton {
-    button: Arc<Mutex<Button<PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>>>>,
-}
-
-impl ThreadSafeButton {
-    fn new(button: Button<PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>>) -> Self {
-        ThreadSafeButton {
-            button: Arc::new(Mutex::new(button)),
-        }
-    }
-
-    async fn update(&self) -> ButtonEvent {
-        let mut button_lock = self.button.lock().unwrap(); // MutexGuardを保持
-        let event = button_lock.update(); // MutexGuardのスコープ内でupdate()を呼び出す
-        event.await
-    }
-}
+use std::time::Duration;
+use std::thread;
 
 fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
-    let peripherals = esp_idf_hal::prelude::Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio35).unwrap();
-    let button = Button::new(pin, ButtonConfig::default());
-    let safe_button = ThreadSafeButton::new(button);
+    let peripherals = Peripherals::take().unwrap();
+    let mut pin = PinDriver::input(peripherals.pins.gpio35)?; // GPIO35を入力モードに設定
 
     tokio::spawn(async move {
+        let mut last_state = pin.is_low(); // 初期状態を保存
+        let debounce_delay = Duration::from_millis(50); // チャタリング対策の遅延
+
         loop {
-            match safe_button.update().await {
-                ButtonEvent::ShortPress { count: _ } => info!("HelloButton!"),
-                ButtonEvent::LongPress => info!("It hurts!"),
+            let current_state = pin.is_low(); // 現在の状態を取得
+
+            if current_state != last_state {
+                // 状態が変化した場合、チャタリング対策の遅延
+                thread::sleep(debounce_delay);
+                if pin.is_low() == current_state {
+                    // 遅延後も状態が変わらなければ、有効な状態変化とみなす
+                    if current_state {
+                        info!("HelloButton!");
+                    } else {
+                        info!("Button released!");
+                    }
+                    last_state = current_state; // 状態を更新
+                }
             }
+            thread::sleep(Duration::from_millis(10)); // 状態確認の間隔
         }
     });
 
