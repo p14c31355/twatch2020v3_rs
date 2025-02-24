@@ -1,44 +1,43 @@
-use esp_idf_hal::gpio::PinDriver;
-use esp_idf_sys::EspError;
+use esp_idf_hal::gpio::*;
+use esp_idf_hal::prelude::*;
+use esp_idf_sys::*;
 use log::info;
-use async_button::*;
 use async_std;
-use std::sync::{Arc, Mutex};
+use async_std::channel::{bounded, Sender};
+use std::time::Duration;
 
-struct ThreadSafeButton {
-    button: Arc<Mutex<Button<PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>>>>,
-}
-
-impl ThreadSafeButton {
-    fn new(button: Button<PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>>) -> Self {
-        ThreadSafeButton {
-            button: Arc::new(Mutex::new(button)),
-        }
-    }
-
-    async fn update(&self) -> ButtonEvent {
-        self.button.lock().unwrap().update().await
-    }
-}
-
-fn main() -> Result<(), EspError> {
-    esp_idf_svc::log::EspLogger::initialize_default();
-
-    let peripherals = esp_idf_hal::prelude::Peripherals::take().unwrap();
-    let pin = PinDriver::input(peripherals.pins.gpio35).unwrap();
-    let button = Button::new(pin, ButtonConfig::default());
-    let safe_button = ThreadSafeButton::new(button);
-
-    async_std::task::spawn(async move {
-        loop {
-            match safe_button.update().await {
-                ButtonEvent::ShortPress { count: _ } => info!("HelloButton!"),
-                ButtonEvent::LongPress => info!("It hurts!"),
+async fn monitor_gpio(pin: PinDriver<'static, esp_idf_hal::gpio::Gpio35, esp_idf_hal::gpio::Input>, tx: Sender<bool>) {
+    let mut last_state = pin.is_high();
+    loop {
+        let current_state = pin.is_high();
+        if current_state != last_state {
+            if tx.send(current_state).await.is_ok() {
+                last_state = current_state;
+                async_std::task::sleep(Duration::from_millis(1000)).await; // チャタリング対策
             }
         }
-    });
+        async_std::task::sleep(Duration::from_millis(200)).await; // ポーリング間隔
+    }
+}
+
+#[async_std::main]
+async fn main() -> Result<(), EspError> {
+    esp_idf_svc::log::EspLogger::initialize_default();
+
+    let peripherals = Peripherals::take().unwrap();
+    let pin = PinDriver::input(peripherals.pins.gpio35).unwrap();
+
+    let (tx, rx) = bounded(1); // バッファサイズ1のチャネルを作成
+
+    async_std::task::spawn(monitor_gpio(pin, tx)); // GPIO監視タスクを生成
 
     loop {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        if let Ok(state) = rx.recv().await {
+            if state {
+                info!("Button pressed!");
+            } else {
+                info!("Button released!");
+            }
+        }
     }
 }
