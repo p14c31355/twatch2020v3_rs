@@ -6,13 +6,14 @@ use tokio;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use esp_idf_hal::gpio::InterruptPinDriver;
 
 fn main() -> Result<(), EspError> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let pin = PinDriver::input(peripherals.pins.gpio35)?; // GPIO35を入力モードに設定
-    let mut interrupt_pin = PinDriver::interrupt_input(peripherals.pins.gpio35)?; // 割り込み入力設定
+    let mut interrupt_pin = InterruptPinDriver::new(peripherals.pins.gpio35)?; //割り込み入力設定
 
     let (tx, rx) = mpsc::channel();
 
