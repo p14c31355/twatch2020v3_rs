@@ -37,6 +37,7 @@ button-driver = "0.2.2"
 async-button = "0.2.0"
 # 別に full はいらない
 tokio = { version = "1.43.0", features = ["rt", "macros"] }
+async-std = "1.13.0"
 
 [build-dependencies]
 embuild = "0.33"
