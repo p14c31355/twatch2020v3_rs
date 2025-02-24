@@ -34,6 +34,8 @@ egui = "0.31.0"
 display-interface-spi = { version = "0.5.0" }
 chrono = "0.4"
 button-driver = "0.2.2"
+async-button = "0.2.0"
+tokio = "1.43.0"
 
 [build-dependencies]
 embuild = "0.33"
