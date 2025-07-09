@@ -33,7 +33,7 @@ TTGO T-Watch 2020 v3 firmware written in Rustlang
    - I2S_WS IO25
    - I2C_DOUT IO33
 
-### install guide
+### Install guide ( Linux )
 1.espup install
 ```
 cargo install ldproxy
@@ -52,6 +52,13 @@ cargo generate esp-rs/esp-idf-template cargo
 cargo +esp build
 ```
 !!! "+esp" is ESSENTIAL !!!
+
+### Install guide ( Windows )
+1. Install wsl2 & Install WSL extention in your VSCode
+2. Activate wsl2 & Restart your PC
+3. Install Rust on wsl2
+4. Install build-essential on wsl2
+5. espup install
 
 ## References
 https://lang-ship.com/blog/work/esp32-std-rust-1/
