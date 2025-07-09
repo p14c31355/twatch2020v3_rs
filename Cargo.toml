@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Placeless <thinkoverheat@gmail.com>"]
 edition = "2024"
 resolver = "2"
-rust-version = "1.88"
+rust-version = "1.87"
 
 [[bin]]
 name = "twatch2020v3_rs"
