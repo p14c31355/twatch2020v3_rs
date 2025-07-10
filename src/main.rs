@@ -1,9 +1,9 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{
-        SpiDriver, SpiConfig, // Master は不要（SpiDriver::newの引数として推論されるため）
+        SpiDriver, config, // <-- Added 'config' here
     },
-    gpio::{PinDriver, AnyInputPin}, // 整理
+    gpio::{PinDriver, AnyInputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
@@ -11,9 +11,8 @@ use esp_idf_svc::hal::{
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
-// mipidsi の SpiInterface を使用
 use mipidsi::interface::SpiInterface;
-use mipidsi::options::Orientation; // Orientation をインポート
+use mipidsi::options::{Orientation, ColorOrder}; // <-- Ensured both are here
 
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -22,12 +21,13 @@ use embedded_graphics::{
     text::Text,
 };
 use mipidsi::{Builder, models::ST7789};
-use mipidsi::options::ColorOrder;
 
 use log::*;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+use embedded_hal_compat::forward; // ADD THIS IMPORT
 
 // AXP192のI2Cアドレス（前回までと同じ）
 const AXP192_ADDR: u8 = 0x34;
@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
     let _delay = FreeRtos;
 
     // 一時バッファを宣言
-    let mut display_buffer = [0u8; 4096]; // 例えば4KB (240x240ピクセルの一部に使うには十分) もしくはディスプレイの最大コマンド/データサイズに合わせて調整
+    let mut display_buffer = [0u8; 4096];
 
     // --- I2C AXP192 の初期化 (ボタン検出のため、前回と同じコードを残します) ---
     let sda = peripherals.pins.gpio21;
@@ -72,7 +72,6 @@ fn main() -> anyhow::Result<()> {
         },
         Err(e) => {
             error!("Failed to configure AXP192 IRQ enable: {:?}", e);
-            // return Err(e.into());
         }
     }
 
@@ -87,7 +86,6 @@ fn main() -> anyhow::Result<()> {
         },
         Err(e) => {
             error!("Failed to clear AXP192 IRQ status: {:?}", e);
-            // return Err(e.into());
         }
     }
 
@@ -100,33 +98,31 @@ fn main() -> anyhow::Result<()> {
         sclk,
         sdo,
         Option::<AnyInputPin>::None, // MISOをNoneで渡す
-        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig::new() を使用
+        &config::Config::new().baudrate(80.MHz().into()), // <-- Changed SpiConfig to config::Config
     )?;
     info!("SPI driver initialized successfully.");
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
-    let _cs = PinDriver::output(peripherals.pins.gpio5)?; // CSピンは mipidsi::interface::SpiInterface では直接使用しないが、確保しておく
-    let mut backlight = PinDriver::output(peripherals.pins.gpio4)?; // バックライト
-
-    // GPIO34 の問題に対する暫定的な対応は継続
-    // let rst = PinDriver::output(peripherals.pins.gpio34.into_output().unwrap())?;
-    // info!("Display RST pin configured.");
+    let _cs = PinDriver::output(peripherals.pins.gpio5)?;
+    let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
 
     // バックライトON
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    // mipidsi の SpiInterface は spi_driver と dc を引数に取る
-    let di = SpiInterface::new(spi_driver, dc, &mut display_buffer);
+    // Wrap spi_driver with forward! to make it compatible with embedded_hal::spi::SpiDevice v1.0.0
+    let spi_driver_compat = forward!(spi_driver); // <-- Added this line
+    
+    // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
+    let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer); // <-- Used spi_driver_compat
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
-    let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240) // T-Watch 2020 V3の解像度
-        .with_orientation(Orientation::Portrait) // Orientation を直接使用
-        .with_invert_colors(ColorOrder::Rgb) // ColorOrder を直接使用
+    let mut display = Builder::new(ST7789, di, 240, 240) // <-- Changed Builder::new signature
+        .with_orientation(Orientation::Portrait)
+        .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
-        .init(&mut _delay, None) // RSTピンは引き続きNone
+        .init(&mut _delay, None)
         .map_err(|e| anyhow::anyhow!("Display init error: {:?}", e))?;
     info!("Display controller initialized.");
 
@@ -147,7 +143,6 @@ fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Text draw error: {:?}", e))?;
 
     info!("Text drawn. Display test successful if text is visible.");
-
 
     // --- ESP32 GPIO 35 (User Button) Initialization ---
     let button_pressed = Arc::new(Mutex::new(false));
