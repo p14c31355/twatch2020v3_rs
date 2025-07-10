@@ -2,30 +2,34 @@ use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     gpio::PinDriver,
     peripherals::Peripherals,
-    prelude::FromValueType, // kHz() メソッドのために必要
+    prelude::FromValueType,
 };
 use log::*;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-// axp192 v0.1.0 に ChargerState が存在する場合、必要に応じてインポート
-// use axp192::ChargerState; 
-use axp192::Axp192;
-// axp192 v0.1.0 に irq モジュールや IRQManager トレイトがない可能性があるので、削除またはコメントアウト
-// use axp192::irq::IRQManager; 
-
-// embedded-hal::blocking::i2c と DelayMs は v0.1.0 で必要
-use embedded_hal::blocking::i2c::{Read, Write, WriteRead}; 
-use embedded_hal::blocking::delay::DelayMs; 
+// axp192 クレート関連のインポートはすべて削除
+// use axp192::Axp192;
+// use axp192::irq::IRQManager;
+// use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
+// use embedded_hal::blocking::delay::DelayMs;
 use esp_idf_svc::hal::delay::FreeRtos;
+
+// AXP192のI2Cアドレス
+const AXP192_ADDR: u8 = 0x34; // T-Watch 2020 V3のAXP192 I2Cアドレス
+
+// AXP192のレジスタアドレス (一般的なもの、正確なものはデータシートで要確認)
+const AXP192_PEK_IRQ_EN1: u8 = 0x46; // Interrupt Enable Register 1
+const AXP192_PEK_IRQ_STATUS1: u8 = 0x48; // Interrupt Status Register 1
+const AXP192_PEK_SHORT_PRESS_BIT: u8 = 0b0000_0010; // PEK_SHORT_PRESS_INT_EN (BIT1)
 
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut delay = FreeRtos; // v0.1.0 の Axp192::new() は DelayMs を必要とする可能性が高い
+    let _delay = FreeRtos;
 
     let button_pressed = Arc::new(Mutex::new(false));
     let button_pressed_clone = button_pressed.clone();
@@ -33,28 +37,37 @@ fn main() -> anyhow::Result<()> {
     // --- AXP192 (I2C) の初期化 ---
     let sda = peripherals.pins.gpio21;
     let scl = peripherals.pins.gpio22;
-    let i2c = I2cDriver::new(
+    let mut i2c = I2cDriver::new( // i2c を mut に変更
         peripherals.i2c0,
         sda,
         scl,
-        &I2cConfig::new().baudrate(400u32.kHz().into()), // FromValueType がスコープにある
+        &I2cConfig::new().baudrate(400u32.kHz().into()),
     )?;
 
-    // AXP192 ドライバーインスタンスを作成
-    // v0.1.0 の Axp192::new() は I2C と DelayMs の両方を引数に取り、Result を返すことが一般的
-    let mut axp = Axp192::new(i2c, delay)?; 
-    info!("AXP192 initialized!");
+    // AXP192 の初期設定
+    // PEK_SHORT_PRESS_INT_EN (0x46 レジスタのビット1) を有効にする
+    // 既存の値にOR演算でビットを立てるのが安全ですが、
+    // ここでは単純に設定します。必要に応じて既存値を読み取ってからORしてください。
+    // https://github.com/Xinyuan-LilyGO/T-Watch-2020/blob/master/code/T-Watch-2.0-V3-Factory/src/AIO/axp.h#L24
+    // 0x46 レジスタのデフォルト値は 0x00 です。
+    // PEK_SHORT_PRESS_INT_EN (bit 1) を有効にするには 0x02 を書き込みます。
+    i2c.write(AXP192_ADDR, &[AXP192_PEK_IRQ_EN1, AXP192_PEK_SHORT_PRESS_BIT])?; // Enable PEK short press IRQ
+    info!("AXP192 configured for PEK IRQ!");
 
-    // --- AXP192 Specific Configuration ---
-    // v0.1.0 の API に合わせてメソッド名を再確認する必要があります。
-    // enable_pek_irq, clear_all_irqs がAxp192構造体に直接実装されているか確認。
-    // もしそれでも "method not found" が出る場合、v0.1.0 のドキュメントを再確認するか、
-    // T-Watch 2020 v3 の他の Rust サンプルで AXP192 の割り込みをどう扱っているか確認してください。
-    // 一部の機能は特定のバージョンでしか提供されないか、名前が異なることがあります。
-    axp.enable_pek_irq()?;
-    axp.clear_all_irqs()?;
+    // 最初にすべての割り込み状態をクリアする
+    i2c.write(AXP192_ADDR, &[AXP192_PEK_IRQ_STATUS1, 0xFF])?; // 0xFF を書き込むことでクリア（データシート確認要）
+    // 通常は、ステータスレジスタを読み取って、その値を再度書き込むことでクリアします。
+    // let mut irq_status_buf = [0u8; 1];
+    // i2c.write_read(AXP192_ADDR, &[AXP192_PEK_IRQ_STATUS1], &mut irq_status_buf)?;
+    // i2c.write(AXP192_ADDR, &[AXP192_PEK_IRQ_STATUS1, irq_status_buf[0]])?;
+    info!("AXP192 IRQ status cleared!");
+
 
     // --- ESP32 GPIO 35 (User Button) Initialization ---
+    // GPIO35はAXP192からの割り込み信号を受けるピンです。
+    // T-Watch 2020 V3では、GPIO35は通常、AXP192の割り込み出力ピン（IRQピン）に接続されています。
+    // AXP192のIRQピンはアクティブLOW（割り込み発生時にLOWになる）であることが多いです。
+    // そのため、NegEdge（立ち下がりエッジ）で割り込みを設定します。
     let mut button = PinDriver::input(peripherals.pins.gpio35)?;
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     unsafe { button.subscribe(move || {
@@ -66,21 +79,25 @@ fn main() -> anyhow::Result<()> {
         {
             let mut pressed = button_pressed.lock().unwrap();
             if *pressed {
-                info!("Button Pressed!");
+                info!("Button Pressed (from ESP32 GPIO)!");
                 *pressed = false;
-                thread::sleep(Duration::from_millis(50));
+
+                // AXP192の割り込みステータスを読み取り、クリアする
+                let mut irq_status_buf = [0u8; 1];
+                if i2c.write_read(AXP192_ADDR, &[AXP192_PEK_IRQ_STATUS1], &mut irq_status_buf).is_ok() {
+                    let irq_status = irq_status_buf[0];
+                    if (irq_status & AXP192_PEK_SHORT_PRESS_BIT) != 0 {
+                        info!("AXP192 PEK Short Press detected (from I2C poll)!");
+                    }
+                    // 読み取ったレジスタの値をそのまま書き戻すことでクリアします (データシートの方法)
+                    if i2c.write(AXP192_ADDR, &[AXP192_PEK_IRQ_STATUS1, irq_status]).is_ok() {
+                        info!("AXP192 IRQ status cleared via I2C.");
+                    }
+                }
+
+                thread::sleep(Duration::from_millis(50)); // Debounce
             }
         }
         thread::sleep(Duration::from_millis(100));
-
-        // AXP192からのボタン状態のポーリング
-        // v0.1.0 の API に合わせてメソッド名を再確認。
-        // get_all_irqs と clear_pek_irq が Axp192 構造体に直接実装されているか確認。
-        if let Ok(irq_status) = axp.get_all_irqs() {
-            if irq_status.is_pek_short_press() {
-                info!("AXP192 PEK Short Press detected!");
-                axp.clear_pek_irq()?;
-            }
-        }
     }
 }
