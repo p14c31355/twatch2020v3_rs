@@ -22,12 +22,13 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
-esp-idf-hal = "0.45"
+esp-idf-hal = "0.45.2"
+anyhow = "1"
 embedded-graphics = "0.8"
-mipidsi = "0.9.0"
-anyhow = "1.0"
+mipidsi = "0.9"
 
 esp-idf-svc = "0.51.0"
+embedded-hal = "1.0.0"
 
 [build-dependencies]
 embuild = "0.33"
