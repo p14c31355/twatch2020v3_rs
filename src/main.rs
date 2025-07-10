@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::sys::TickType_t;
-
+use axp192::*;
 // AXP192のI2Cアドレス
 const AXP192_ADDR: u8 = 0x34;
 const AXP192_PEK_IRQ_EN1: u8 = 0x46;
@@ -45,6 +45,10 @@ fn main() -> anyhow::Result<()> {
 
     // AXP192が起動するまで少し待つ (オプション)
     thread::sleep(Duration::from_millis(50)); // 例えば50ミリ秒
+
+    let chip_id = axp192.read(0x03)?;
+    log::info!("AXP192 Chip ID: {:#X}", chip_id);
+
 
     // I2C タイムアウトのティック数
     let i2c_timeout_ticks: TickType_t = 100u32;
