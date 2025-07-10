@@ -1,8 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{
-        SpiDriver, config, // <-- Added 'config' here
-    },
+    spi::SpiDriver, // SpiDriverのみをインポート
+    spi::config::DriverConfig, // DriverConfigを明示的にインポート
     gpio::{PinDriver, AnyInputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
@@ -12,7 +11,7 @@ use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
 use mipidsi::interface::SpiInterface;
-use mipidsi::options::{Orientation, ColorOrder}; // <-- Ensured both are here
+use mipidsi::options::{Orientation, ColorOrder};
 
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -27,7 +26,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal_compat::forward; // ADD THIS IMPORT
+// embedded-hal-compat のマクロは明示的なインポートが不要
+// use embedded_hal_compat::forward; // この行は削除
 
 // AXP192のI2Cアドレス（前回までと同じ）
 const AXP192_ADDR: u8 = 0x34;
@@ -97,8 +97,13 @@ fn main() -> anyhow::Result<()> {
         peripherals.spi2,
         sclk,
         sdo,
-        Option::<AnyInputPin>::None, // MISOをNoneで渡す
-        &config::Config::new().baudrate(80.MHz().into()), // <-- Changed SpiConfig to config::Config
+        Option::<AnyInputPin>::None,
+        // DriverConfig の baudrate は直接設定
+        &{
+            let mut cfg = DriverConfig::new();
+            cfg.clock_speed_hz = 80.MHz().into(); // clock_speed_hz フィールドに直接代入
+            cfg
+        },
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -110,15 +115,16 @@ fn main() -> anyhow::Result<()> {
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    // Wrap spi_driver with forward! to make it compatible with embedded_hal::spi::SpiDevice v1.0.0
-    let spi_driver_compat = forward!(spi_driver); // <-- Added this line
+    // spi_driver を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
+    let spi_driver_compat = embedded_hal_compat::v0_2::forward!(spi_driver); // v0_2 モジュールを明示的に指定
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
-    let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer); // <-- Used spi_driver_compat
+    let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer);
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
-    let mut display = Builder::new(ST7789, di, 240, 240) // <-- Changed Builder::new signature
+    let mut display = Builder::new(ST7789, di) // Builder::new はモデルとインターフェースのみを受け取る
+        .with_display_size(240, 240) // ディスプレイサイズは別途設定
         .with_orientation(Orientation::Portrait)
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
