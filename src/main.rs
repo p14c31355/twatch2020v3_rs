@@ -1,7 +1,6 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::SpiDriver, // SpiDriverのみをインポート
-    spi::config::DriverConfig, // DriverConfigを明示的にインポート
+    spi::{SpiDriver, SpiConfig}, // SpiConfig をインポートに戻す
     gpio::{PinDriver, AnyInputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
@@ -98,12 +97,7 @@ fn main() -> anyhow::Result<()> {
         sclk,
         sdo,
         Option::<AnyInputPin>::None,
-        // DriverConfig の baudrate は直接設定
-        &{
-            let mut cfg = DriverConfig::new();
-            cfg.clock_speed_hz = 80.MHz().into(); // clock_speed_hz フィールドに直接代入
-            cfg
-        },
+        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用して baudrate を設定
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -116,7 +110,7 @@ fn main() -> anyhow::Result<()> {
     info!("Display backlight ON.");
 
     // spi_driver を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
-    let spi_driver_compat = embedded_hal_compat::v0_2::forward!(spi_driver); // v0_2 モジュールを明示的に指定
+    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver); // v0_2 モジュールを削除して直接呼び出し
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
     let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer);
