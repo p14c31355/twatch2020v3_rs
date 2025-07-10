@@ -1,82 +1,80 @@
 use esp_idf_svc::hal::{
-    i2c::{I2cDriver, I2cConfig}, // I2Cのインポートを追加
-    gpio::{PinDriver, Pull},
+    i2c::{I2cDriver, I2cConfig}, // I2Cのインポート
+    gpio::PinDriver, // Pull は使わないので削除
     peripherals::Peripherals,
 };
-use esp_idf_svc::eventloop::*;
+// use esp_idf_svc::eventloop::*; // 使わないので削除
 use log::*;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex}; // ArcとMutexは、button_pressed のために必要なので残します。
 use std::thread;
 use std::time::Duration;
 
-// axp192 と embedded_hal のトレイトを追加
-use axp192::{Axp192, ChargerState}; // ChargerState は必要に応じて
-use embedded_hal::blocking::delay::DelayMs; // 遅延が必要な場合
-use esp_idf_svc::hal::delay::FreeRtos; // 遅延プロバイダの例
+// axp192 をインポート
+use axp192::Axp192; // ChargerState は不要
+
+// embedded-hal の DelayMs は axp192 v0.2.0 では不要
+// use embedded_hal::blocking::delay::DelayMs;
+use esp_idf_svc::hal::delay::FreeRtos; // 遅延プロバイダ
 
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut delay = FreeRtos; // AXP192の初期化用遅延
+    let _delay = FreeRtos; // AXP192::new() に渡す必要はないが、他の場所で使う可能性があるので残しておく
+
+    // 割り込みハンドラの初期化 (main関数の先頭近くに移動)
+    let button_pressed = Arc::new(Mutex::new(false));
+    let button_pressed_clone = button_pressed.clone();
 
     // --- AXP192 (I2C) の初期化 ---
-    // T-Watch 2020 V3 の I2C は通常 GPIO21 (SDA) と GPIO22 (SCL) です。
-    let sda = peripherals.pins.gpio21;
-    let scl = peripherals.pins.gpio22;
+    let sda = peripherals.pins.gpio21; // SDA pin
+    let scl = peripherals.pins.gpio22; // SCL pin
     let i2c = I2cDriver::new(
-        peripherals.i2c0, // I2C0 ペリフェラルを使用
+        peripherals.i2c0, // Use I2C0 peripheral
         sda,
         scl,
-        &I2cConfig::new().baudrate(400.kHz().into()), // 高速I2C
+        &I2cConfig::new().baudrate(400u32.kHz().into()), // 400kHzに型を明示 (u32を追加)
     )?;
 
-    // AXP192 ドライバーインスタンスを作成
-    let mut axp = Axp192::new(i2c, delay)?;
+    // AXP192 ドライバーインスタンスを作成 (delay を削除)
+    let mut axp = Axp192::new(i2c)?; // Axp192::new() は Result を返さないので ? は不要
     info!("AXP192 initialized!");
 
-    // --- AXP192 固有の設定 (T-Watchのボタンには非常に重要) ---
-    // これらは T-Watch のボタンと AXP192 を介した一般的な設定です。
-    // ボタン割り込みや電源供給に使用されるGPIOを有効にします。
-    // T-WatchのボタンはAXP192の電源キー(PEK)割り込みに接続されていることが多いです。
-    axp.enable_pek_irq()?; // PEK (Power Enable Key) 割り込みを有効化
-    axp.clear_all_irqs()?; // AXP192上の保留中の割り込みをクリア
+    // --- AXP192 Specific Configuration ---
+    axp.enable_pek_irq()?;
+    axp.clear_all_irqs()?;
 
-    // 必要に応じて、AXP192のGPIOを構成します。T-Watchの回路図を確認して、
-    // ボタン入力に関わるAXP192のGPIOがどのように使われているか確認してください。
-    // axp.set_gpio0_mode_input()?; // 例: GPIO0をPMICの入力として設定
-
-    // --- ESP32 GPIO 35 (ユーザーボタン) の初期化 ---
+    // --- ESP32 GPIO 35 (User Button) Initialization ---
     let mut button = PinDriver::input(peripherals.pins.gpio35)?;
-    // 前述の通り、GPIO35には内部プルアップ/ダウンがありません。
-    // T-Watchのボタンが外部プルアップされていると仮定し、NegEdgeが正しいです。
-    // もしAXP192の割り込みを使用する場合、ESP32のGPIO35は単なる割り込み入力になります。
+    // T-Watchのボタンは外部プルアップされていると仮定し、NegEdgeが正しい
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     unsafe { button.subscribe(move || {
         let mut pressed = button_pressed_clone.lock().unwrap();
         *pressed = true;
     }) }?;
 
-    // ... (メインループの残りの部分) ...
+    // ... (rest of your main loop) ...
     loop {
         {
             let mut pressed = button_pressed.lock().unwrap();
             if *pressed {
                 info!("Button Pressed!");
                 *pressed = false;
-                thread::sleep(Duration::from_millis(50)); // チャタリング防止
+                thread::sleep(Duration::from_millis(50)); // Debounce
             }
         }
         thread::sleep(Duration::from_millis(100));
 
         // AXP192からのボタン状態をポーリングするか、割り込みをクリアすることもできます。
-        // 例 (未テスト、AXP192のIRQ設定に依存します):
-        // if let Ok(irq_status) = axp.get_all_irqs() {
-        //     if irq_status.is_pek_short_press() {
-        //         info!("AXP192 PEK Short Press detected!");
-        //         axp.clear_pek_irq()?;
-        //     }
-        // }
+        // この部分も axp192 v0.2.0 の API に合わせて調整が必要かもしれません。
+        // get_all_irqs() の戻り値やメソッド名が変わっている可能性があります。
+        // ドキュメント: [https://docs.rs/axp192/0.2.0/axp192/](https://docs.rs/axp192/0.2.0/axp192/)
+        if let Ok(irq_status) = axp.get_all_irqs() { // get_all_irqs が Result を返すか確認
+            if irq_status.is_pek_short_press() { // is_pek_short_press が存在するか確認
+                info!("AXP192 PEK Short Press detected!");
+                axp.clear_pek_irq()?; // clear_pek_irq が存在するか確認
+            }
+        }
     }
 }
