@@ -2,7 +2,7 @@ use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     gpio::PinDriver,
     peripherals::Peripherals,
-    prelude::FromValueType, // これを再度追加！
+    prelude::FromValueType, // kHz() のために必要
 };
 use log::*;
 use std::sync::{Arc, Mutex};
@@ -10,7 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use esp_idf_svc::hal::delay::FreeRtos;
-use esp_idf_svc::sys::{pdMS_TO_TICKS, TickType_t}; // pdMS_TO_TICKS を追加！
+use esp_idf_svc::sys::TickType_t; // TickType_t は残します
 
 // AXP192のI2Cアドレス
 const AXP192_ADDR: u8 = 0x34; // T-Watch 2020 V3のAXP192 I2Cアドレス
@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let _delay = FreeRtos; // この FreeRtos インスタンスはそのまま
+    let _delay = FreeRtos;
 
     let button_pressed = Arc::new(Mutex::new(false));
     let button_pressed_clone = button_pressed.clone();
@@ -37,11 +37,12 @@ fn main() -> anyhow::Result<()> {
         peripherals.i2c0,
         sda,
         scl,
-        &I2cConfig::new().baudrate(400u32.kHz().into()), // FromValueType がスコープにある
+        &I2cConfig::new().baudrate(400u32.kHz().into()),
     )?;
 
     // I2C タイムアウトのティック数
-    let i2c_timeout_ticks: TickType_t = unsafe { pdMS_TO_TICKS(100) }; // ここを修正！unsafeブロックが必要
+    // TickType_t は通常 u32 のエイリアスなので、直接 u32 値を渡す
+    let i2c_timeout_ticks: TickType_t = 100u32; // ここを修正！
 
     // AXP192 の初期設定
     i2c.write(
