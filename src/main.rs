@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{
-        SpiDriver, SpiConfig, Master, // MasterはSPI Driverのジェネリクスで必要なので残す
+        SpiDriver, SpiConfig, // Master は不要（SpiDriver::newの引数として推論されるため）
     },
     gpio::{PinDriver, AnyInputPin}, // 整理
     peripherals::Peripherals,
@@ -11,8 +11,10 @@ use esp_idf_svc::hal::{
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
-// display-interface-spi の SPIInterface を使用
-use display_interface_spi::SPIInterface; 
+// mipidsi の SpiInterface を使用
+use mipidsi::interface::SpiInterface;
+use mipidsi::options::Orientation; // Orientation をインポート
+
 use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::*,
@@ -41,6 +43,9 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let _delay = FreeRtos;
+
+    // 一時バッファを宣言
+    let mut display_buffer = [0u8; 4096]; // 例えば4KB (240x240ピクセルの一部に使うには十分) もしくはディスプレイの最大コマンド/データサイズに合わせて調整
 
     // --- I2C AXP192 の初期化 (ボタン検出のため、前回と同じコードを残します) ---
     let sda = peripherals.pins.gpio21;
@@ -90,17 +95,17 @@ fn main() -> anyhow::Result<()> {
     info!("Initializing SPI for display...");
     let sclk = peripherals.pins.gpio18;
     let sdo = peripherals.pins.gpio23; // MOSI
-    let spi_driver = SpiDriver::new( // Master トレイトの代わりに Master 型を使用
+    let spi_driver = SpiDriver::new(
         peripherals.spi2,
         sclk,
         sdo,
         Option::<AnyInputPin>::None, // MISOをNoneで渡す
-        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig::new() に戻す
+        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig::new() を使用
     )?;
     info!("SPI driver initialized successfully.");
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
-    let cs = PinDriver::output(peripherals.pins.gpio5)?;
+    let _cs = PinDriver::output(peripherals.pins.gpio5)?; // CSピンは mipidsi::interface::SpiInterface では直接使用しないが、確保しておく
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?; // バックライト
 
     // GPIO34 の問題に対する暫定的な対応は継続
@@ -111,14 +116,14 @@ fn main() -> anyhow::Result<()> {
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    // display-interface-spi の SPIInterface は spi_driver, dc, cs を引数に取る
-    let di = SPIInterface::new(spi_driver, dc, cs);
-
+    // mipidsi の SpiInterface は spi_driver と dc を引数に取る
+    let di = SpiInterface::new(spi_driver, dc, &mut display_buffer);
+    
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
         .with_display_size(240, 240) // T-Watch 2020 V3の解像度
-        .with_orientation(mipidsi::options::Orientation::Portrait) // 向きの指定を追加（任意）
+        .with_orientation(Orientation::Portrait) // Orientation を直接使用
         .with_invert_colors(ColorOrder::Rgb) // ColorOrder を直接使用
         .with_framebuffer_size(240, 240)
         .init(&mut _delay, None) // RSTピンは引き続きNone
