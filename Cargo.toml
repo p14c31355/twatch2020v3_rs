@@ -37,6 +37,8 @@ chrono = "0.4"
 # 別に full はいらない
 tokio = { version = "1.43.0", features = ["rt", "macros"] }
 async-std = { version = "1.13.0", features = ["attributes"] }
+axp192 = "0.2.0"
+embedded-hal = "1.0.0"
 
 [build-dependencies]
 embuild = "0.33"
