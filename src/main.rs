@@ -1,13 +1,11 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{
-        SpiDriver, config::{self, DriverConfig}, // DriverConfig を再度インポート
-    },
     gpio::{PinDriver, AnyInputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
 };
+use esp_idf_svc::spi::{Master, Config as SpiConfig}; // SpiDriver と DriverConfig の代わりに Master と Config を使用
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
@@ -45,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     // 一時バッファを宣言
     let mut display_buffer = [0u8; 4096];
 
-    // --- I2C AXP192 の初期化 (ボタン検出のため、前回と同じコードを残します) ---
+    // --- I2C AXP192 の初期化 ---
     let sda = peripherals.pins.gpio21;
     let scl = peripherals.pins.gpio22;
     info!("Initializing I2C driver...");
@@ -91,21 +89,23 @@ fn main() -> anyhow::Result<()> {
     info!("Initializing SPI for display...");
     let sclk = peripherals.pins.gpio18;
     let sdo = peripherals.pins.gpio23; // MOSI
-    let spi_driver = SpiDriver::new(
+    let sdi_opt = Option::<AnyInputPin>::None; // MISO は未使用
+    let cs = peripherals.pins.gpio5; // CS ピンを定義
+
+    // esp_idf_svc::spi::Master を使用してSPIドライバを初期化
+    let spi_driver = Master::new(
         peripherals.spi2,
-        sclk,
-        sdo,
-        Option::<AnyInputPin>::None,
-        &{
-            let mut cfg = config::DriverConfig::new();
-            cfg.clock_speed_hz = 80.MHz().into(); // clock_speed_hz フィールドに直接代入
-            cfg
-        },
+        esp_idf_svc::hal::gpio::Pins(
+            sclk,
+            sdo,
+            sdi_opt,
+            Some(cs), // CSピンを指定
+        ),
+        &SpiConfig::new().baudrate(80.MHz().into()), // esp_idf_svc::spi::Config を使用
     )?;
     info!("SPI driver initialized successfully.");
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
-    let _cs = PinDriver::output(peripherals.pins.gpio5)?;
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
 
     // バックライトON
@@ -113,15 +113,15 @@ fn main() -> anyhow::Result<()> {
     info!("Display backlight ON.");
 
     // spi_driver を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
-    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver); // 直接呼び出し
+    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver);
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
     let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer);
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
-    let mut display = Builder::new(ST7789, di) // Builder::new はモデルとインターフェースのみを受け取る
-        .with_display_size(240, 240) // ディスプレイサイズは別途設定
+    let mut display = Builder::new(ST7789, di)
+        .with_display_size(240, 240)
         .with_orientation(Orientation::Portrait)
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
