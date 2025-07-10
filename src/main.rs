@@ -1,6 +1,8 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{SpiDriver, SpiConfig}, // SpiConfig をインポートに戻す
+    spi::{
+        SpiDriver, config::{self, DriverConfig}, // DriverConfig を再度インポート
+    },
     gpio::{PinDriver, AnyInputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
@@ -24,9 +26,6 @@ use log::*;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-
-// embedded-hal-compat のマクロは明示的なインポートが不要
-// use embedded_hal_compat::forward; // この行は削除
 
 // AXP192のI2Cアドレス（前回までと同じ）
 const AXP192_ADDR: u8 = 0x34;
@@ -97,7 +96,11 @@ fn main() -> anyhow::Result<()> {
         sclk,
         sdo,
         Option::<AnyInputPin>::None,
-        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用して baudrate を設定
+        &{
+            let mut cfg = config::DriverConfig::new();
+            cfg.clock_speed_hz = 80.MHz().into(); // clock_speed_hz フィールドに直接代入
+            cfg
+        },
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -110,7 +113,7 @@ fn main() -> anyhow::Result<()> {
     info!("Display backlight ON.");
 
     // spi_driver を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
-    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver); // v0_2 モジュールを削除して直接呼び出し
+    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver); // 直接呼び出し
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
     let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer);
