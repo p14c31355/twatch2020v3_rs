@@ -1,8 +1,8 @@
 use esp_idf_hal::{
     delay::FreeRtos,
-    gpio::{AnyInputPin, AnyOutputPin, Gpio23, Gpio18, Gpio19, Gpio5, PinDriver},
+    gpio::{AnyOutputPin, PinDriver},
     prelude::*,
-    spi::{config::Config as SpiConfig, Driver as SpiDriver, DeviceDriver as SpiDeviceDriver, DriverConfig, SPI2},
+    spi::{config::Config as SpiConfig, config::DriverConfig, SpiDeviceDriver, SpiDriver, SPI2},
 };
 
 use embedded_graphics::{
@@ -11,11 +11,12 @@ use embedded_graphics::{
     prelude::*,
     text::Text,
 };
-use mipidsi::Builder;
-use st7789::ST7789;
 
-fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+use mipidsi::{models::ST7789, Builder, DisplayConfig, ModelOptions};
+use anyhow::Result;
+
+fn main() -> Result<()> {
+    esp_idf_svc::sys::link_patches();
 
     // Peripherals取得
     let peripherals = Peripherals::take().unwrap();
@@ -24,10 +25,9 @@ fn main() -> anyhow::Result<()> {
     let sclk = peripherals.pins.gpio18;
     let sdo  = peripherals.pins.gpio23;
     let sdi  = peripherals.pins.gpio19;
-    let cs   = peripherals.pins.gpio5;
 
     // SPIドライバの初期化
-    let spi_peripheral = SpiDriver::new(
+    let spi_driver = SpiDriver::new(
         peripherals.spi2,
         sclk,
         sdo,
@@ -35,22 +35,30 @@ fn main() -> anyhow::Result<()> {
         &DriverConfig::new(),
     )?;
 
-    // デバイスドライバの初期化（CSピンをNoneに）
-    let spi_device_driver = SpiDeviceDriver::new(
-        spi_peripheral,
-        Option::<AnyOutputPin>::None, // CSピンは未使用
+    // SPIデバイスドライバ (CSピンなし)
+    let spi_device = SpiDeviceDriver::new(
+        spi_driver,
+        Option::<AnyOutputPin>::None,
         &SpiConfig::new().baudrate(80.MHz().into()),
     )?;
 
     // Displayインタフェース作成
-    let di = mipidsi::DisplayInterface::new_no_cs(spi_device_driver);
+    let di = mipidsi::DisplayInterface::new_no_cs(spi_device);
+
+    // ModelOptionsの設定（必要なら細かく調整可）
+    let options = ModelOptions {
+        invert_colors: true, // T-Watch 2020 V3 は通常true
+        ..Default::default()
+    };
 
     // ST7789用ディスプレイ初期化
-    let mut display = Builder::new(ST7789, di)
+    let mut display = Builder::new(di, ST7789, options)
         .display_size(240, 240)
-        .build()
+        .display_orientation(DisplayConfig::default())
+        .init()
         .unwrap();
 
+    // ディスプレイ描画
     display.clear(Rgb565::BLACK).unwrap();
 
     let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
@@ -61,16 +69,14 @@ fn main() -> anyhow::Result<()> {
 
     println!("Display initialized!");
 
-    // ボタンの例 (仮)
+    // ボタン入力例（GPIO0を入力に）
     let button = PinDriver::input(peripherals.pins.gpio0)?;
 
-    unsafe {
-        button.subscribe(move || {
+    // 擬似 subscribe 処理（簡易ポーリング）
+    loop {
+        if button.is_low() {
             println!("Button pressed!");
-        });
+        }
+        FreeRtos::delay_ms(100);
     }
-
-    FreeRtos::delay_ms(1000);
-
-    Ok(())
 }
