@@ -1,9 +1,9 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{
-        SpiDriver, SpiConfig, Master, // SpiMode は不要
+        SpiDriver, SpiConfig, // Master は不要
     },
-    gpio::{PinDriver, Input, AnyIOPin, AnyOutputPin, AnyInputPin}, // Input, AnyIOPin, AnyOutputPin, AnyInputPin を追加
+    gpio::{PinDriver, AnyInputPin}, // 整理
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
@@ -11,15 +11,15 @@ use esp_idf_svc::hal::{
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
-use mipidsi::interface::SPIInterface; // SpiInterface を mipidsi からインポート
+use mipidsi::interface::SpiInterface; // SpiInterface の型名修正
 use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::*,
     mono_font::{ascii::FONT_6X10, MonoTextStyle},
     text::Text,
 };
-use mipidsi::{Builder, models::ST7789}; // ST7789 モデルをインポート
-use mipidsi::options::ColorOrder; // ColorOrder をインポート
+use mipidsi::{Builder, models::ST7789};
+use mipidsi::options::ColorOrder;
 
 use log::*;
 use std::sync::{Arc, Mutex};
@@ -66,9 +66,7 @@ fn main() -> anyhow::Result<()> {
         },
         Err(e) => {
             error!("Failed to configure AXP192 IRQ enable: {:?}", e);
-            // ここでreturn Err(e.into()); をコメントアウトし、
-            // ディスプレイテストを続行できるようにします。
-            // return Err(e.into());
+            // return Err(e.into()); // エラーが出てもディスプレイテストに進めるようにする
         }
     }
 
@@ -92,11 +90,11 @@ fn main() -> anyhow::Result<()> {
     let sclk = peripherals.pins.gpio18;
     let sdo = peripherals.pins.gpio23; // MOSI
     let spi_driver = SpiDriver::new(
-        peripherals.spi2, // 通常、ESP32-WROVERはSPI2またはSPI3を使用
+        peripherals.spi2,
         sclk,
         sdo,
-        Option::<AnyInputPin>::None, // MISOをNoneで渡す (AnyInputPin を使用)
-        &SpiConfig::new().baudrate(80.MHz().into()), // BaudrateにIntoトレイトが必要
+        Option::<AnyInputPin>::None, // MISOをNoneで渡す
+        &esp_idf_svc::hal::spi::config::Config::new().baudrate(80.MHz().into()), // SpiConfig::new() の代わりに spi::config::Config::new() を使用
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -104,24 +102,23 @@ fn main() -> anyhow::Result<()> {
     let cs = PinDriver::output(peripherals.pins.gpio5)?;
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?; // バックライト
 
-    // GPIO34はOutputPinを実装していない可能性があるので、AnyOutputPinに変換を試みる
-    // もしそれでもエラーが出る場合、GPIO34はリセットピンとして使えない可能性が高い
-    let rst = PinDriver::output(peripherals.pins.gpio34.into_output().unwrap())?; // GPIO34をOutputに変換
-    info!("Display RST pin configured.");
+    // GPIO34 の問題に対する暫定的な対応
+    // let rst = PinDriver::output(peripherals.pins.gpio34.into_output().unwrap())?; // この行をコメントアウト
+    // info!("Display RST pin configured.");
 
     // バックライトON
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    let di = SPIInterface::new(spi_driver, dc, cs); // SPIInterface の型名修正
+    let di = SpiInterface::new(spi_driver, dc, cs); // SpiInterface の型名修正
 
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
-    let mut display = Builder::new(ST7789, di) // Builder::new を使用し、ST7789 モデルを渡す
+    let mut display = Builder::new(ST7789, di)
         .with_display_size(240, 240) // T-Watch 2020 V3の解像度
         .with_invert_colors(ColorOrder::Rgb) // ColorOrder を直接使用
         .with_framebuffer_size(240, 240)
-        .init(&mut _delay, Some(rst))
+        .init(&mut _delay, None) // RSTピンをNoneにする
         .map_err(|e| anyhow::anyhow!("Display init error: {:?}", e))?;
     info!("Display controller initialized.");
 
@@ -132,7 +129,7 @@ fn main() -> anyhow::Result<()> {
 
     // テキストを描画
     info!("Drawing text on display...");
-    let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE); // FONT_6X10 を参照で渡す
+    let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
     Text::new("T-Watch 2020 V3 Test", Point::new(10, 50), text_style)
         .draw(&mut display)
         .map_err(|e| anyhow::anyhow!("Text draw error: {:?}", e))?;
@@ -144,9 +141,8 @@ fn main() -> anyhow::Result<()> {
     info!("Text drawn. Display test successful if text is visible.");
 
 
-    // --- ESP32 GPIO 35 (User Button) Initialization (前回と同じコード) ---
-    // Arc<Mutex<bool>> はメイン関数内で一つだけ作成し、クローンして使う
-    let button_pressed = Arc::new(Mutex::new(false)); // 既に宣言済みだが、念のため。
+    // --- ESP32 GPIO 35 (User Button) Initialization ---
+    let button_pressed = Arc::new(Mutex::new(false));
     let button_pressed_clone = button_pressed.clone();
     info!("Initializing GPIO35 for button...");
     let mut button = PinDriver::input(peripherals.pins.gpio35)?;
