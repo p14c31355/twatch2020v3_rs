@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{self, Spi, SpiConfig, SPI1, SPI2, SPI3}, // spi::self is still unused, will remove it
-    gpio::{PinDriver, AnyInputPin, AnyOutputPin},
+    spi::{Spi, SpiConfig, SPI1, SPI2, SPI3}, // Removed 'self' as it's unused
+    gpio::{PinDriver, AnyInputPin}, // Removed AnyOutputPin as it's not directly used for PinDriver output
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
@@ -11,7 +11,7 @@ use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
 use mipidsi::interface::SpiInterface;
-use mipidsi::options::{ColorOrder, Orientation};
+use mipidsi::options::{ColorOrder, Orientation}; // Keep Orientation here
 
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -100,8 +100,7 @@ fn main() -> anyhow::Result<()> {
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
 
     // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
-    // SPI3 を使用する前提で AnySpi::Spi3 にラップ
-    // Spi::new は個々のピンを直接引数に取ります
+    // SPI3 を使用する前提で
     let spi_peripheral = Spi::new(
         peripherals.spi3, // SPI peripheral instance
         sclk,             // SCLK pin
@@ -111,9 +110,9 @@ fn main() -> anyhow::Result<()> {
         &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
     )?;
 
-    // AnySpi から SpiDeviceDriver を作成
-    // SpiDeviceDriver::new now takes a SpiDriver, which you can get by calling .into() on your Spi instance
-    let spi_device_driver = SpiDeviceDriver::new(spi_peripheral);
+    // SpiDeviceDriver::new now takes a Spi instance directly, not a SpiDriver wrapped in AnySpi.
+    // The `into()` method on `Spi` converts it to a `SpiDriver`.
+    let spi_device_driver = SpiDeviceDriver::new(spi_peripheral.into());
     
     info!("SPI driver initialized successfully.");
 
@@ -123,11 +122,11 @@ fn main() -> anyhow::Result<()> {
 
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     // SpiDeviceDriver::device() now expects a reference to a Config and an optional CS pin
-    // Also, dc needs to be converted to AnyOutputPin
-    let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi. This is not used by mipidsi directly, but rather by the SpiInterface. The size is 240*240*2 bytes for RGB565.
+    // dc needs to be converted to AnyOutputPin, but you can pass PinDriver<Output> directly if mipidsi's SpiInterface expects a specific type.
+    let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi.
     let di = SpiInterface::new(
         spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
-        dc.into_any_output(), // Convert PinDriver<Output> to AnyOutputPin
+        dc, // Pass the PinDriver<Output> directly
         &mut display_buffer
     );
     
@@ -135,11 +134,11 @@ fn main() -> anyhow::Result<()> {
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
         .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
-        .with_orientation(Orientation::Portrait(false)) // Orientation::Portrait takes a bool for inverted
+        .with_orientation(Orientation::Portrait) // Simplified to just Orientation::Portrait
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
         .init(&mut _delay, None)
-        .map_err(|e| anyhow::anyhow!("Display init error: {:?}", e))?;
+        .map_err(|e| anyhow::anyow!("Display init error: {:?}", e))?;
     info!("Display controller initialized.");
 
     // ディスプレイを黒でクリア
