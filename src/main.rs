@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{self, Spi, SpiConfig},
-    gpio::{PinDriver, AnyInputPin, Pins as GpioPins},
+    gpio::{PinDriver, AnyInputPin, AnyOutputPin, Pins as GpioPins},
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
@@ -116,9 +116,9 @@ fn main() -> anyhow::Result<()> {
 
     // AnySpi から SpiDeviceDriver を作成
     let spi_device_driver = match spi_driver {
-        AnySpi::Spi1(spi) => SpiDeviceDriver::new(spi.into()),
-        AnySpi::Spi2(spi) => SpiDeviceDriver::new(spi.into()),
-        AnySpi::Spi3(spi) => SpiDeviceDriver::new(spi.into()),
+        AnySpi::Spi1(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
+        AnySpi::Spi2(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
+        AnySpi::Spi3(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
     };
 
     info!("SPI driver initialized successfully.");
@@ -129,12 +129,12 @@ fn main() -> anyhow::Result<()> {
 
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     // SpiDeviceDriver は Spi.device() を呼び出すことで取得する
-    let di = SpiInterface::new(spi_device_driver.device(None, None, None)?, dc);
+    let di = SpiInterface::new(spi_device_driver.device(None, None)?, dc.into_any_output().unwrap());
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
+        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ // T-Watch 2020 V3 のディスプレイサイズ
         .with_orientation(Orientation::Portrait)
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
