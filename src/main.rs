@@ -1,11 +1,11 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{Spi, SpiConfig, SPI1, SPI2, SPI3},
-    gpio::{PinDriver, AnyInputPin, OutputPin}, // Added OutputPin here
-    peripherals::Peripherals,
+    gpio::{PinDriver, AnyInputPin}, // Added OutputPin here
+    peripherals::Peripherals, // Removed OutputPin from here
     prelude::FromValueType, // Removed OutputPin from here
     delay::FreeRtos,
-    spi::SpiDeviceDriver,
+    spi::{SpiDeviceDriver, SpiDriver},
 };
 use esp_idf_svc::sys::TickType_t;
 
@@ -101,20 +101,19 @@ fn main() -> anyhow::Result<()> {
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
 
     // Spi::new takes the peripheral, SCLK, MOSI, MISO, CS, and SpiConfig.
-    let spi_peripheral = Spi::new(
-        peripherals.spi3, // SPI peripheral instance
-        sclk,             // SCLK pin
-        sdo,              // MOSI pin
-        sdi_opt,          // MISO pin (None if not used)
-        cs,               // CS pin
-        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
-    )?;
+    let spi_peripheral = SpiDriver::new(
+    spi,
+    sclk,
+    sdo,
+    sdi,
+    &DriverConfig::new() // 必要ならここで設定
+)?;
 
     // SpiDeviceDriver::new now takes the Spi instance (which implements SpiDriver),
     // an optional CS pin (None if already handled by Spi), and the SpiConfig.
     let spi_device_driver = SpiDeviceDriver::new(
         spi_peripheral, // The Spi instance, which implements SpiDriver
-        Option::<AnyInputPin>::None, // CS pin is already handled by spi_peripheral, so None here
+        Option::<AnyOutputPin>::None, // CS pin is already handled by spi_peripheral, so None here
         &SpiConfig::new().baudrate(80.MHz().into()), // Re-use the config or define a new one for the device
     )?;
     
@@ -124,19 +123,21 @@ fn main() -> anyhow::Result<()> {
     backlight.set_high()?;
     info!("Display backlight ON.");
 
+    let handle = spi_device_driver.device();
+
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi.
     let di = SpiInterface::new( // Removed <SpiDriver> generic argument
         spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
-        dc, // PinDriver<Output> implements OutputPin, pass directly
+        dc.into(), // PinDriver<Output> implements OutputPin, pass directly
         &mut display_buffer
     );
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
-        .with_orientation(Orientation::new()) // Use Orientation::new() as per mipidsi 0.9.0
+        .display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
+        .orientation(Orientation::new()) // Use Orientation::new() as per mipidsi 0.9.0
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
         .init(&mut _delay, None)?;
@@ -168,7 +169,7 @@ fn main() -> anyhow::Result<()> {
     info!("GPIO35 pull-up/down implicitly handled (or not set).");
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     info!("GPIO35 interrupt type set.");
-    unsafe { button.subscribe(move || { // Closure should take 0 arguments
+    unsafe { button.subscribe(move |_| { // Closure should take 0 arguments
         let mut pressed = button_pressed_clone.lock().unwrap();
         *pressed = true;
         info!("GPIO35 interrupt triggered!");
