@@ -5,6 +5,7 @@ use esp_idf_svc::hal::{
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
+    spi::SpiDeviceDriver,
 };
 use esp_idf_svc::sys::TickType_t;
 
@@ -94,14 +95,47 @@ fn main() -> anyhow::Result<()> {
 
     // SPIピンを構造体リテラル構文で初期化
     let spi_pins = GpioPins {
-        sclk,
-        sdo,
-        sdi: sdi_opt,
-        cs: Some(cs), // CSピンを指定
+        gpio18: sclk, // sclk (gpio18) を明示的に指定
+        gpio23: sdo, // sdo (gpio23) を明示的に指定
+        // sdi: sdi_opt, // MISOは使用しないためコメントアウト
+        // cs, // cs (gpio5) を明示的に指定
+        gpio5: cs, // cs (gpio5) を明示的に指定
+        gpio4: peripherals.pins.gpio4, // gpio4 (backlight) を明示的に指定
+        gpio0: peripherals.pins.gpio0,
+        gpio2: peripherals.pins.gpio2,
+        gpio3: peripherals.pins.gpio3,
+        gpio6: peripherals.pins.gpio6,
+        gpio7: peripherals.pins.gpio7,
+        gpio8: peripherals.pins.gpio8,
+        gpio9: peripherals.pins.gpio9,
+        gpio10: peripherals.pins.gpio10,
+        gpio11: peripherals.pins.gpio11,
+        gpio12: peripherals.pins.gpio12,
+        gpio13: peripherals.pins.gpio13,
+        gpio14: peripherals.pins.gpio14,
+        gpio15: peripherals.pins.gpio15,
+        gpio17: peripherals.pins.gpio17,
+        gpio19: peripherals.pins.gpio19,
+        gpio20: peripherals.pins.gpio20,
+        gpio21: peripherals.pins.gpio21,
+        gpio22: peripherals.pins.gpio22,
+        gpio25: peripherals.pins.gpio25,
+        gpio26: peripherals.pins.gpio26,
+        gpio27: peripherals.pins.gpio27,
+        gpio32: peripherals.pins.gpio32,
+        gpio33: peripherals.pins.gpio33,
+        gpio34: peripherals.pins.gpio34,
+        gpio35: peripherals.pins.gpio35,
+        gpio36: peripherals.pins.gpio36,
+        gpio37: peripherals.pins.gpio37,
+        gpio38: peripherals.pins.gpio38,
+        gpio39: peripherals.pins.gpio39,
+        gpio1: peripherals.pins.gpio1,
+        gpio16: peripherals.pins.gpio16,
     };
 
     // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
-    let spi_driver = peripherals.spi2.into_master(
+    let spi_driver = <dyn Spi>::new(
         spi_pins,
         &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
     )?;
@@ -115,15 +149,15 @@ fn main() -> anyhow::Result<()> {
     info!("Display backlight ON.");
 
     // spi_driver (Spi<spi::Master>) を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
-    let spi_driver_compat = embedded_hal_compat::forward!(spi_driver);
+    let spi_driver_compat = SpiDeviceDriver::new(spi_driver);
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
-    let di = SpiInterface::new(spi_driver_compat, dc, &mut display_buffer);
+    let di = SpiInterface::new(spi_driver_compat, dc);
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240)
+        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
         .with_orientation(Orientation::Portrait)
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
