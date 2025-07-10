@@ -2,7 +2,7 @@ use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     gpio::PinDriver,
     peripherals::Peripherals,
-    prelude::FromValueType,
+    prelude::FromValueType, // これが kHz() と millis() を提供
 };
 use log::*;
 use std::sync::{Arc, Mutex};
@@ -43,19 +43,15 @@ fn main() -> anyhow::Result<()> {
     i2c.write(
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_EN1, AXP192_PEK_SHORT_PRESS_BIT],
-        100.millis().into(), // タイムアウト引数を追加
+        100u32.millis().into(), // ここを修正！
     )?;
     info!("AXP192 configured for PEK IRQ!");
 
     // 最初にすべての割り込み状態をクリアする
-    // AXP192のデータシートでは、IRxレジスタを読み取った後、同じ値を書き込むことでクリアすると記載されています。
-    // https://github.com/Xinyuan-LilyGO/T-Watch-2020/blob/master/code/T-Watch-2.0-V3-Factory/src/AIO/axp.h#L112
-    // ここではまず、0xFFを書き込む一般的な方法を試しています。
-    // もし動かなければ、下記コメントアウト部分のように read -> write でクリアしてください。
     i2c.write(
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_STATUS1, 0xFF],
-        100.millis().into(), // タイムアウト引数を追加
+        100u32.millis().into(), // ここを修正！
     )?;
     info!("AXP192 IRQ status cleared!");
 
@@ -80,7 +76,7 @@ fn main() -> anyhow::Result<()> {
                     AXP192_ADDR,
                     &[AXP192_PEK_IRQ_STATUS1],
                     &mut irq_status_buf,
-                    100.millis().into(), // タイムアウト引数を追加
+                    100u32.millis().into(), // ここを修正！
                 ).is_ok() {
                     let irq_status = irq_status_buf[0];
                     if (irq_status & AXP192_PEK_SHORT_PRESS_BIT) != 0 {
@@ -90,7 +86,7 @@ fn main() -> anyhow::Result<()> {
                     if i2c.write(
                         AXP192_ADDR,
                         &[AXP192_PEK_IRQ_STATUS1, irq_status],
-                        100.millis().into(), // タイムアウト引数を追加
+                        100u32.millis().into(), // ここを修正！
                     ).is_ok() {
                         info!("AXP192 IRQ status cleared via I2C.");
                     } else {
