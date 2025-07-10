@@ -1,11 +1,11 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{self, Spi, SpiConfig}, // SpiDriver の代わりに Spi ペリフェラル自体と SpiConfig をインポート
-    gpio::{PinDriver, AnyInputPin, Pins as GpioPins}, // Pins 構造体をインポートし、GpioPinsとしてエイリアス
+    spi::{self, Spi, SpiConfig},
+    gpio::{PinDriver, AnyInputPin, Pins as GpioPins},
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
-    spi::SpiDeviceDriver,
+    spi::{SpiDeviceDriver, SpiDriver, SPI1, SPI2, SPI3},
 };
 use esp_idf_svc::sys::TickType_t;
 
@@ -32,6 +32,13 @@ const AXP192_PEK_IRQ_EN1: u8 = 0x46;
 const AXP192_PEK_IRQ_STATUS1: u8 = 0x48;
 const AXP192_PEK_SHORT_PRESS_BIT: u8 = 0b0000_0010;
 
+// Define an enum to hold different SPI peripherals
+enum AnySpi {
+    Spi1(SPI1),
+    Spi2(SPI2),
+    Spi3(SPI3),
+}
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -40,9 +47,6 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let _delay = FreeRtos;
-
-    // 一時バッファを宣言
-    let mut display_buffer = [0u8; 4096];
 
     // --- I2C AXP192 の初期化 ---
     let sda = peripherals.pins.gpio21;
@@ -92,67 +96,40 @@ fn main() -> anyhow::Result<()> {
     let sdo = peripherals.pins.gpio23; // MOSI
     let sdi_opt = Option::<AnyInputPin>::None; // MISO は未使用
     let cs = peripherals.pins.gpio5; // CS ピンを定義
-
-    // SPIピンを構造体リテラル構文で初期化
-    let spi_pins = GpioPins {
-        gpio18: sclk, // sclk (gpio18) を明示的に指定
-        gpio23: sdo, // sdo (gpio23) を明示的に指定
-        // sdi: sdi_opt, // MISOは使用しないためコメントアウト
-        // cs, // cs (gpio5) を明示的に指定
-        gpio5: cs, // cs (gpio5) を明示的に指定
-        gpio4: peripherals.pins.gpio4, // gpio4 (backlight) を明示的に指定
-        gpio0: peripherals.pins.gpio0,
-        gpio2: peripherals.pins.gpio2,
-        gpio3: peripherals.pins.gpio3,
-        gpio6: peripherals.pins.gpio6,
-        gpio7: peripherals.pins.gpio7,
-        gpio8: peripherals.pins.gpio8,
-        gpio9: peripherals.pins.gpio9,
-        gpio10: peripherals.pins.gpio10,
-        gpio11: peripherals.pins.gpio11,
-        gpio12: peripherals.pins.gpio12,
-        gpio13: peripherals.pins.gpio13,
-        gpio14: peripherals.pins.gpio14,
-        gpio15: peripherals.pins.gpio15,
-        gpio17: peripherals.pins.gpio17,
-        gpio19: peripherals.pins.gpio19,
-        gpio20: peripherals.pins.gpio20,
-        gpio21: peripherals.pins.gpio21,
-        gpio22: peripherals.pins.gpio22,
-        gpio25: peripherals.pins.gpio25,
-        gpio26: peripherals.pins.gpio26,
-        gpio27: peripherals.pins.gpio27,
-        gpio32: peripherals.pins.gpio32,
-        gpio33: peripherals.pins.gpio33,
-        gpio34: peripherals.pins.gpio34,
-        gpio35: peripherals.pins.gpio35,
-        gpio36: peripherals.pins.gpio36,
-        gpio37: peripherals.pins.gpio37,
-        gpio38: peripherals.pins.gpio38,
-        gpio39: peripherals.pins.gpio39,
-        gpio1: peripherals.pins.gpio1,
-        gpio16: peripherals.pins.gpio16,
-    };
-
-    // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
-    let spi_driver = <dyn Spi>::new(
-        spi_pins,
-        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
-    )?;
-    info!("SPI driver initialized successfully.");
-
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
+
+
+    // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
+    // SPI3 を使用する前提で AnySpi::Spi3 にラップ
+    // SPI3::new は個々のピンを直接引数に取ります
+    let spi_driver = AnySpi::Spi3(
+        Spi::new(
+            peripherals.spi3, // SPI peripheral instance
+            sclk,             // SCLK pin
+            sdo,              // MOSI pin
+            sdi_opt,          // MISO pin (None if not used)
+            cs,               // CS pin
+            &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
+        )?
+    );
+
+    // AnySpi から SpiDeviceDriver を作成
+    let spi_device_driver = match spi_driver {
+        AnySpi::Spi1(spi) => SpiDeviceDriver::new(spi.into()),
+        AnySpi::Spi2(spi) => SpiDeviceDriver::new(spi.into()),
+        AnySpi::Spi3(spi) => SpiDeviceDriver::new(spi.into()),
+    };
+
+    info!("SPI driver initialized successfully.");
 
     // バックライトON
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    // spi_driver (Spi<spi::Master>) を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
-    let spi_driver_compat = SpiDeviceDriver::new(spi_driver);
-    
-    // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
-    let di = SpiInterface::new(spi_driver_compat, dc);
+    // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
+    // SpiDeviceDriver は Spi.device() を呼び出すことで取得する
+    let di = SpiInterface::new(spi_device_driver.device(None, None, None)?, dc);
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
@@ -191,7 +168,7 @@ fn main() -> anyhow::Result<()> {
     info!("GPIO35 pull-up/down implicitly handled (or not set).");
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     info!("GPIO35 interrupt type set.");
-    unsafe { button.subscribe(move || {
+    unsafe { button.subscribe(move |_| {
         let mut pressed = button_pressed_clone.lock().unwrap();
         *pressed = true;
         info!("GPIO35 interrupt triggered!");
