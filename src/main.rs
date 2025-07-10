@@ -1,17 +1,17 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{self, Spi, SpiConfig, SpiDriver, SPI1, SPI2, SPI3}, // spi::self is still unused, will remove it
-    gpio::{PinDriver, AnyInputPin, AnyOutputPin, Pins as GpioPins}, // GpioPins is still unused, will remove it
+    spi::{self, Spi, SpiConfig, SPI1, SPI2, SPI3}, // spi::self is still unused, will remove it
+    gpio::{PinDriver, AnyInputPin, AnyOutputPin},
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
-    spi::SpiDeviceDriver, // SpiDriver is not directly used for SpiDeviceDriver::new
+    spi::SpiDeviceDriver,
 };
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
 use mipidsi::interface::SpiInterface;
-use mipidsi::options::{Orientation, ColorOrder}; // Orientation::Portrait is directly imported
+use mipidsi::options::{ColorOrder, Orientation};
 
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -124,7 +124,7 @@ fn main() -> anyhow::Result<()> {
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     // SpiDeviceDriver::device() now expects a reference to a Config and an optional CS pin
     // Also, dc needs to be converted to AnyOutputPin
-    let mut display_buffer = [0u8; 4096]; // Buffer for mipidsi
+    let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi. This is not used by mipidsi directly, but rather by the SpiInterface. The size is 240*240*2 bytes for RGB565.
     let di = SpiInterface::new(
         spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
         dc.into_any_output(), // Convert PinDriver<Output> to AnyOutputPin
