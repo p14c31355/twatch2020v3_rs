@@ -40,33 +40,56 @@ fn main() -> anyhow::Result<()> {
         scl,
         &I2cConfig::new().baudrate(400u32.kHz().into()),
     )?;
-    info!("I2C driver initialized successfully."); // 成功ログ
+    // src/main.rs の I2C driver initialized successfully. の後あたり
+    info!("I2C driver initialized successfully.");
+
+    // AXP192が起動するまで少し待つ (オプション)
+    thread::sleep(Duration::from_millis(50)); // 例えば50ミリ秒
 
     // I2C タイムアウトのティック数
     let i2c_timeout_ticks: TickType_t = 100u32;
 
     info!("Configuring AXP192 IRQ enable...");
-    i2c.write(
+    // ... 続くコード
+
+    // I2C タイムアウトのティック数
+    let i2c_timeout_ticks: TickType_t = 100u32;
+
+    info!("Configuring AXP192 IRQ enable...");
+    match i2c.write( // ★ここをmatchに変更
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_EN1, AXP192_PEK_SHORT_PRESS_BIT],
         i2c_timeout_ticks,
-    )?;
-    info!("AXP192 configured for PEK IRQ!"); // 成功ログ
+    ) {
+        Ok(_) => {
+            info!("AXP192 configured for PEK IRQ!");
+        },
+        Err(e) => {
+            error!("Failed to configure AXP192 IRQ enable: {:?}", e); // エラー情報を出力
+            return Err(e.into()); // main関数からエラーを返す
+        }
+    }
 
-    info!("Clearing AXP192 IRQ status...");
-    i2c.write(
+    match i2c.write( // ★ここをmatchに変更
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_STATUS1, 0xFF],
         i2c_timeout_ticks,
-    )?;
-    info!("AXP192 IRQ status cleared!"); // 成功ログ
+    ) {
+        Ok(_) => {
+            info!("AXP192 IRQ status cleared!");
+        },
+        Err(e) => {
+            error!("Failed to clear AXP192 IRQ status: {:?}", e); // エラー情報を出力
+            return Err(e.into()); // main関数からエラーを返す
+        }
+    }
+
 
     // --- ESP32 GPIO 35 (User Button) Initialization ---
     info!("Initializing GPIO35 for button...");
     let mut button = PinDriver::input(peripherals.pins.gpio35)?;
-    // プルアップ設定を追加
-    button.set_pull(esp_idf_svc::hal::gpio::Pull::Up)?; // ここでエラーになる可能性も
-    info!("GPIO35 pull-up set.");
+    // button.set_pull(esp_idf_svc::hal::gpio::Pull::Up)?; // この行を削除またはコメントアウト
+    info!("GPIO35 pull-up/down implicitly handled (or not set)."); // ログも変更
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     info!("GPIO35 interrupt type set.");
     unsafe { button.subscribe(move || {
