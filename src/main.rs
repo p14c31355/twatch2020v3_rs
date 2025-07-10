@@ -1,17 +1,17 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    spi::{self, Spi, SpiConfig},
-    gpio::{PinDriver, AnyInputPin, AnyOutputPin, Pins as GpioPins},
+    spi::{self, Spi, SpiConfig, SpiDriver, SPI1, SPI2, SPI3}, // spi::self is still unused, will remove it
+    gpio::{PinDriver, AnyInputPin, AnyOutputPin, Pins as GpioPins}, // GpioPins is still unused, will remove it
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
-    spi::{SpiDeviceDriver, SpiDriver, SPI1, SPI2, SPI3},
+    spi::SpiDeviceDriver, // SpiDriver is not directly used for SpiDeviceDriver::new
 };
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
 use mipidsi::interface::SpiInterface;
-use mipidsi::options::{Orientation, ColorOrder};
+use mipidsi::options::{Orientation, ColorOrder}; // Orientation::Portrait is directly imported
 
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -99,28 +99,22 @@ fn main() -> anyhow::Result<()> {
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
 
-
     // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
     // SPI3 を使用する前提で AnySpi::Spi3 にラップ
-    // SPI3::new は個々のピンを直接引数に取ります
-    let spi_driver = AnySpi::Spi3(
-        Spi::new(
-            peripherals.spi3, // SPI peripheral instance
-            sclk,             // SCLK pin
-            sdo,              // MOSI pin
-            sdi_opt,          // MISO pin (None if not used)
-            cs,               // CS pin
-            &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
-        )?
-    );
+    // Spi::new は個々のピンを直接引数に取ります
+    let spi_peripheral = Spi::new(
+        peripherals.spi3, // SPI peripheral instance
+        sclk,             // SCLK pin
+        sdo,              // MOSI pin
+        sdi_opt,          // MISO pin (None if not used)
+        cs,               // CS pin
+        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
+    )?;
 
     // AnySpi から SpiDeviceDriver を作成
-    let spi_device_driver = match spi_driver {
-        AnySpi::Spi1(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
-        AnySpi::Spi2(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
-        AnySpi::Spi3(spi) => SpiDeviceDriver::new(spi.into(), Option::<AnyInputPin>::None, Option::<AnyOutputPin>::None),
-    };
-
+    // SpiDeviceDriver::new now takes a SpiDriver, which you can get by calling .into() on your Spi instance
+    let spi_device_driver = SpiDeviceDriver::new(spi_peripheral);
+    
     info!("SPI driver initialized successfully.");
 
     // バックライトON
@@ -128,14 +122,20 @@ fn main() -> anyhow::Result<()> {
     info!("Display backlight ON.");
 
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
-    // SpiDeviceDriver は Spi.device() を呼び出すことで取得する
-    let di = SpiInterface::new(spi_device_driver.device(None, None)?, dc.into_any_output().unwrap());
+    // SpiDeviceDriver::device() now expects a reference to a Config and an optional CS pin
+    // Also, dc needs to be converted to AnyOutputPin
+    let mut display_buffer = [0u8; 4096]; // Buffer for mipidsi
+    let di = SpiInterface::new(
+        spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
+        dc.into_any_output(), // Convert PinDriver<Output> to AnyOutputPin
+        &mut display_buffer
+    );
     
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ // T-Watch 2020 V3 のディスプレイサイズ
-        .with_orientation(Orientation::Portrait)
+        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
+        .with_orientation(Orientation::Portrait(false)) // Orientation::Portrait takes a bool for inverted
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
         .init(&mut _delay, None)
@@ -168,7 +168,7 @@ fn main() -> anyhow::Result<()> {
     info!("GPIO35 pull-up/down implicitly handled (or not set).");
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::NegEdge)?;
     info!("GPIO35 interrupt type set.");
-    unsafe { button.subscribe(move |_| {
+    unsafe { button.subscribe(move || { // Closure should take 0 arguments
         let mut pressed = button_pressed_clone.lock().unwrap();
         *pressed = true;
         info!("GPIO35 interrupt triggered!");
