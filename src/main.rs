@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{Spi, SpiConfig, SPI1, SPI2, SPI3}, // Removed 'self' as it's unused
-    gpio::{PinDriver, AnyInputPin}, // Removed AnyOutputPin as it's not directly used for PinDriver output
+    gpio::{PinDriver, AnyInputPin, AnyOutputPin}, // Removed AnyOutputPin as it's not directly used for PinDriver output
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
@@ -123,7 +123,7 @@ fn main() -> anyhow::Result<()> {
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     // SpiDeviceDriver::device() now expects a reference to a Config and an optional CS pin
     // dc needs to be converted to AnyOutputPin, but you can pass PinDriver<Output> directly if mipidsi's SpiInterface expects a specific type.
-    let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi.
+    let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi. // TODO: This buffer is not actually used by mipidsi's SpiInterface, it's a placeholder.
     let di = SpiInterface::new(
         spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
         dc, // Pass the PinDriver<Output> directly
@@ -133,12 +133,11 @@ fn main() -> anyhow::Result<()> {
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
-        .with_display_size(240, 240) // T-Watch 2020 V3 のディスプレイサイズ
-        .with_orientation(Orientation::Portrait) // Simplified to just Orientation::Portrait
+        .with_display_size(240, 240) // Use full path for Orientation
+        .with_orientation(Orientation::Portrait)
         .with_invert_colors(ColorOrder::Rgb)
         .with_framebuffer_size(240, 240)
-        .init(&mut _delay, None)
-        .map_err(|e| anyhow::anyow!("Display init error: {:?}", e))?;
+        .init(&mut _delay, None)?;
     info!("Display controller initialized.");
 
     // ディスプレイを黒でクリア
