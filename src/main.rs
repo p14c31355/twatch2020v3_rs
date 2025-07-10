@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     spi::{
-        SpiDriver, SpiConfig, // Master は不要
+        SpiDriver, SpiConfig, Master, // MasterはSPI Driverのジェネリクスで必要なので残す
     },
     gpio::{PinDriver, AnyInputPin}, // 整理
     peripherals::Peripherals,
@@ -11,7 +11,8 @@ use esp_idf_svc::hal::{
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
-use mipidsi::interface::SpiInterface; // SpiInterface の型名修正
+// display-interface-spi の SPIInterface を使用
+use display_interface_spi::SPIInterface; 
 use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::*,
@@ -66,7 +67,7 @@ fn main() -> anyhow::Result<()> {
         },
         Err(e) => {
             error!("Failed to configure AXP192 IRQ enable: {:?}", e);
-            // return Err(e.into()); // エラーが出てもディスプレイテストに進めるようにする
+            // return Err(e.into());
         }
     }
 
@@ -89,12 +90,12 @@ fn main() -> anyhow::Result<()> {
     info!("Initializing SPI for display...");
     let sclk = peripherals.pins.gpio18;
     let sdo = peripherals.pins.gpio23; // MOSI
-    let spi_driver = SpiDriver::new(
+    let spi_driver = SpiDriver::new( // Master トレイトの代わりに Master 型を使用
         peripherals.spi2,
         sclk,
         sdo,
         Option::<AnyInputPin>::None, // MISOをNoneで渡す
-        &esp_idf_svc::hal::spi::config::Config::new().baudrate(80.MHz().into()), // SpiConfig::new() の代わりに spi::config::Config::new() を使用
+        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig::new() に戻す
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -102,23 +103,25 @@ fn main() -> anyhow::Result<()> {
     let cs = PinDriver::output(peripherals.pins.gpio5)?;
     let mut backlight = PinDriver::output(peripherals.pins.gpio4)?; // バックライト
 
-    // GPIO34 の問題に対する暫定的な対応
-    // let rst = PinDriver::output(peripherals.pins.gpio34.into_output().unwrap())?; // この行をコメントアウト
+    // GPIO34 の問題に対する暫定的な対応は継続
+    // let rst = PinDriver::output(peripherals.pins.gpio34.into_output().unwrap())?;
     // info!("Display RST pin configured.");
 
     // バックライトON
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    let di = SpiInterface::new(spi_driver, dc, cs); // SpiInterface の型名修正
+    // display-interface-spi の SPIInterface は spi_driver, dc, cs を引数に取る
+    let di = SPIInterface::new(spi_driver, dc, cs);
 
     // ST7789V ディスプレイを初期化
     info!("Initializing ST7789V display controller...");
     let mut display = Builder::new(ST7789, di)
         .with_display_size(240, 240) // T-Watch 2020 V3の解像度
+        .with_orientation(mipidsi::options::Orientation::Portrait) // 向きの指定を追加（任意）
         .with_invert_colors(ColorOrder::Rgb) // ColorOrder を直接使用
         .with_framebuffer_size(240, 240)
-        .init(&mut _delay, None) // RSTピンをNoneにする
+        .init(&mut _delay, None) // RSTピンは引き続きNone
         .map_err(|e| anyhow::anyhow!("Display init error: {:?}", e))?;
     info!("Display controller initialized.");
 
