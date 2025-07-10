@@ -2,7 +2,7 @@ use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
     gpio::PinDriver,
     peripherals::Peripherals,
-    prelude::FromValueType, // これが kHz() と millis() を提供
+    // prelude::FromValueType, // kHz() はまだ必要かもしれませんが、millis() には直接関与しません
 };
 use log::*;
 use std::sync::{Arc, Mutex};
@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use esp_idf_svc::hal::delay::FreeRtos;
+use esp_idf_svc::sys::TickType_t; // これをインポート！
 
 // AXP192のI2Cアドレス
 const AXP192_ADDR: u8 = 0x34; // T-Watch 2020 V3のAXP192 I2Cアドレス
@@ -24,7 +25,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
-    let _delay = FreeRtos;
+    let _delay = FreeRtos; // この FreeRtos インスタンスは delay_ms() や ticks_from_ms() には不要です
 
     let button_pressed = Arc::new(Mutex::new(false));
     let button_pressed_clone = button_pressed.clone();
@@ -36,14 +37,20 @@ fn main() -> anyhow::Result<()> {
         peripherals.i2c0,
         sda,
         scl,
+        // kHz() は esp_idf_svc::hal::prelude::FromValueType が必要なので残します
         &I2cConfig::new().baudrate(400u32.kHz().into()),
     )?;
+
+    // I2C タイムアウトのティック数
+    // 通常、FreeRTOS のティックは 1ms 単位なので、100ms は 100ティック
+    // ただし、正確な変換には FreeRtos::ticks_from_ms() を使うのがベストプラクティス
+    let i2c_timeout_ticks: TickType_t = FreeRtos::ticks_from_ms(100);
 
     // AXP192 の初期設定
     i2c.write(
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_EN1, AXP192_PEK_SHORT_PRESS_BIT],
-        100u32.millis().into(), // ここを修正！
+        i2c_timeout_ticks, // タイムアウト引数を修正
     )?;
     info!("AXP192 configured for PEK IRQ!");
 
@@ -51,7 +58,7 @@ fn main() -> anyhow::Result<()> {
     i2c.write(
         AXP192_ADDR,
         &[AXP192_PEK_IRQ_STATUS1, 0xFF],
-        100u32.millis().into(), // ここを修正！
+        i2c_timeout_ticks, // タイムアウト引数を修正
     )?;
     info!("AXP192 IRQ status cleared!");
 
@@ -76,7 +83,7 @@ fn main() -> anyhow::Result<()> {
                     AXP192_ADDR,
                     &[AXP192_PEK_IRQ_STATUS1],
                     &mut irq_status_buf,
-                    100u32.millis().into(), // ここを修正！
+                    i2c_timeout_ticks, // タイムアウト引数を修正
                 ).is_ok() {
                     let irq_status = irq_status_buf[0];
                     if (irq_status & AXP192_PEK_SHORT_PRESS_BIT) != 0 {
@@ -86,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                     if i2c.write(
                         AXP192_ADDR,
                         &[AXP192_PEK_IRQ_STATUS1, irq_status],
-                        100u32.millis().into(), // ここを修正！
+                        i2c_timeout_ticks, // タイムアウト引数を修正
                     ).is_ok() {
                         info!("AXP192 IRQ status cleared via I2C.");
                     } else {
@@ -96,9 +103,9 @@ fn main() -> anyhow::Result<()> {
                     error!("Failed to read AXP192 IRQ status.");
                 }
 
-                thread::sleep(Duration::from_millis(50)); // Debounce
+                thread::sleep(Duration::from_millis(50)); // Debounce (std::time::Duration::from_millis を使用)
             }
         }
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(100)); // (std::time::Duration::from_millis を使用)
     }
 }
