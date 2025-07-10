@@ -1,11 +1,11 @@
 use esp_idf_svc::hal::{
     i2c::{I2cDriver, I2cConfig},
-    gpio::{PinDriver, AnyInputPin},
+    spi::{self, Spi, SpiConfig}, // SpiDriver の代わりに Spi ペリフェラル自体と SpiConfig をインポート
+    gpio::{PinDriver, AnyInputPin, Pins as GpioPins}, // Pins 構造体をインポートし、GpioPinsとしてエイリアス
     peripherals::Peripherals,
     prelude::FromValueType,
     delay::FreeRtos,
 };
-use esp_idf_svc::spi::{Master, Config as SpiConfig}; // SpiDriver と DriverConfig の代わりに Master と Config を使用
 use esp_idf_svc::sys::TickType_t;
 
 // ディスプレイ関連のインポート
@@ -92,16 +92,18 @@ fn main() -> anyhow::Result<()> {
     let sdi_opt = Option::<AnyInputPin>::None; // MISO は未使用
     let cs = peripherals.pins.gpio5; // CS ピンを定義
 
-    // esp_idf_svc::spi::Master を使用してSPIドライバを初期化
-    let spi_driver = Master::new(
-        peripherals.spi2,
-        esp_idf_svc::hal::gpio::Pins(
-            sclk,
-            sdo,
-            sdi_opt,
-            Some(cs), // CSピンを指定
-        ),
-        &SpiConfig::new().baudrate(80.MHz().into()), // esp_idf_svc::spi::Config を使用
+    // SPIピンを構造体リテラル構文で初期化
+    let spi_pins = GpioPins {
+        sclk,
+        sdo,
+        sdi: sdi_opt,
+        cs: Some(cs), // CSピンを指定
+    };
+
+    // SpiペリフェラルをMasterモードに変換し、SpiConfigでbaudrateを設定
+    let spi_driver = peripherals.spi2.into_master(
+        spi_pins,
+        &SpiConfig::new().baudrate(80.MHz().into()), // SpiConfig を使用
     )?;
     info!("SPI driver initialized successfully.");
 
@@ -112,7 +114,7 @@ fn main() -> anyhow::Result<()> {
     backlight.set_high()?;
     info!("Display backlight ON.");
 
-    // spi_driver を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
+    // spi_driver (Spi<spi::Master>) を embedded_hal::spi::SpiDevice v1.0.0 と互換性を持たせるために forward! を使用
     let spi_driver_compat = embedded_hal_compat::forward!(spi_driver);
     
     // mipidsi の SpiInterface は spi_driver_compat と dc を引数に取る
