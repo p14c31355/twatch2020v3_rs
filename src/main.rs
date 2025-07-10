@@ -12,7 +12,9 @@ use embedded_graphics::{
     text::Text,
 };
 
-use mipidsi::{models::ST7789, Builder, DisplayConfig, ModelOptions};
+use mipidsi::{models::ST7789, Builder};
+use mipidsi::interface::SpiInterface; // 👈 これを忘れずに！
+
 use anyhow::Result;
 
 fn main() -> Result<()> {
@@ -24,7 +26,7 @@ fn main() -> Result<()> {
     // SPIピンの設定
     let sclk = peripherals.pins.gpio18;
     let sdo  = peripherals.pins.gpio23;
-    let sdi  = peripherals.pins.gpio19;
+    let sdi  = Some(peripherals.pins.gpio19); // Optionで渡す
 
     // SPIドライバの初期化
     let spi_driver = SpiDriver::new(
@@ -43,18 +45,12 @@ fn main() -> Result<()> {
     )?;
 
     // Displayインタフェース作成
-    let di = mipidsi::DisplayInterface::new_no_cs(spi_device);
+    let di = SpiInterface::new_no_cs(spi_device);
 
-    // ModelOptionsの設定（必要なら細かく調整可）
-    let options = ModelOptions {
-        invert_colors: true, // T-Watch 2020 V3 は通常true
-        ..Default::default()
-    };
-
-    // ST7789用ディスプレイ初期化
-    let mut display = Builder::new(di, ST7789, options)
+    // ST7789ディスプレイ初期化
+    let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        .display_orientation(DisplayConfig::default())
+        .invert_colors(true)
         .init()
         .unwrap();
 
