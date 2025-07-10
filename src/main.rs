@@ -3,9 +3,9 @@ use esp_idf_svc::hal::{
     spi::{Spi, SpiConfig, SPI1, SPI2, SPI3},
     gpio::{PinDriver, AnyInputPin}, // Removed AnyOutputPin as it's not directly used for PinDriver output
     peripherals::Peripherals,
-    prelude::FromValueType,
+    prelude::{FromValueType, OutputPin},
     delay::FreeRtos,
-    spi::SpiDeviceDriver,
+    spi::{SpiDeviceDriver, SpiDriver},
 };
 use esp_idf_svc::sys::TickType_t;
 
@@ -113,7 +113,7 @@ fn main() -> anyhow::Result<()> {
     // SpiDeviceDriver::new now takes the Spi instance (which implements SpiDriver),
     // an optional CS pin (None if already handled by Spi), and the SpiConfig.
     let spi_device_driver = SpiDeviceDriver::new(
-        spi_peripheral, // The Spi instance, which implements SpiDriver
+        spi_peripheral, // The Spi instance, which implements SpiDriver, not AnyInputPin
         Option::<AnyInputPin>::None, // CS pin is already handled by spi_peripheral, so None here
         &SpiConfig::new().baudrate(80.MHz().into()), // Re-use the config or define a new one for the device
     )?;
@@ -126,9 +126,9 @@ fn main() -> anyhow::Result<()> {
 
     // mipidsi の SpiInterface は spi_device_driver と dc を引数に取る
     let mut display_buffer = [0u8; 240 * 240 * 2]; // Buffer for mipidsi.
-    let di = SpiInterface::new(
+    let di = SpiInterface::new::<SpiDriver>(
         spi_device_driver.device(None, None)?, // No specific CS here, assuming it's handled by Spi::new
-        dc, // Pass the PinDriver<Output> directly
+        dc.into_output().map_err(|e| anyhow::anyhow!("Failed to convert PinDriver to OutputPin: {:?}", e))?, // Pass the PinDriver<Output> directly
         &mut display_buffer
     );
     
