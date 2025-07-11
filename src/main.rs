@@ -11,7 +11,7 @@ use embedded_graphics::{
     prelude::*,
     text::Text,
 };
-use mipidsi::{Builder, interface::SpiInterface, models::ST7789, options::Rotation, error::DisplayError};
+use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
 
 #[derive(Debug)]
 enum Error {
@@ -19,7 +19,7 @@ enum Error {
     Gpio(esp_idf_hal::gpio::GpioError),
     Spi(esp_idf_hal::spi::SpiError),
     Mipidsi(Box<dyn std::error::Error + Send + Sync>),
-    Draw(Box<dyn std::error::Error + Send + Sync + 'static>),
+    Draw(embedded_graphics::prelude::DrawingError),
 }
 
 impl From<EspError> for Error {
@@ -31,11 +31,8 @@ impl From<esp_idf_hal::gpio::GpioError> for Error {
 impl From<esp_idf_hal::spi::SpiError> for Error {
     fn from(e: esp_idf_hal::spi::SpiError) -> Self { Error::Spi(e) }
 }
-
-impl From<DisplayError<esp_idf_hal::spi::SpiError, esp_idf_hal::gpio::GpioError>> for Error {
-    fn from(e: DisplayError<esp_idf_hal::spi::SpiError, esp_idf_hal::gpio::GpioError>) -> Self {
-        Error::Mipidsi(Box::new(e))
-    }
+impl From<embedded_graphics::prelude::DrawingError> for Error {
+    fn from(e: embedded_graphics::prelude::DrawingError) -> Self { Error::Draw(e) }
 }
 
 fn main() -> Result<(), Error> {
@@ -74,19 +71,18 @@ fn main() -> Result<(), Error> {
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        // .reset_pin(...) // RST未使用なら呼ばない
+        // .reset_pin(...)  // RSTピンなしなら呼ばない
         .init(&mut delay)
-        ?;
+        .map_err(|e| Error::Mipidsi(Box::new(e)))?;
 
     FreeRtos::delay_ms(100);
 
-    display.clear(Rgb565::BLACK).map_err(|e| Error::Draw(Box::new(e)))?;
+    display.clear(Rgb565::BLACK)?;
 
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
     Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style)
-        .draw(&mut display)
-        .map_err(|e| Error::Draw(Box::new(e)))?;
+        .draw(&mut display)?;
 
     println!("Display initialized and text drawn!");
 
