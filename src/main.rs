@@ -1,6 +1,7 @@
 use esp_idf_hal::{
     delay::FreeRtos,
     gpio::PinDriver,
+    gpio::GpioError,
     prelude::*,
     spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver},
 };
@@ -10,25 +11,13 @@ use embedded_graphics::{
     prelude::*,
     text::Text,
 };
-use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
+use mipidsi::{Builder, interface::SpiInterface, models::ST7789, error::Error as MipidsiError};
 
 static mut DISPLAY_BUFFER: [u8; 256] = [0u8; 256];
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
 
-    if let Err(e) = run() {
-        println!("Error: {:?}", e);
-    }
-}
-
-fn run() -> Result<
-    (),
-    mipidsi::builder::InitError<
-        mipidsi::interface::SpiError<esp_idf_hal::spi::SpiError, esp_idf_hal::gpio::GpioError>,
-        core::convert::Infallible,
-    >,
-> {
     let peripherals = esp_idf_hal::peripherals::Peripherals::take().unwrap();
 
     let sclk = peripherals.pins.gpio18;
@@ -51,15 +40,20 @@ fn run() -> Result<
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut bl = PinDriver::output(peripherals.pins.gpio15)?;
-    bl.set_high().unwrap(); // バックライトON
+    bl.set_high()?; // バックライトON
 
     let mut delay = FreeRtos;
 
-    let di = unsafe { SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER) };
+    let di = unsafe {
+        SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER)
+    };
+
+    impl From<MipidsiError<esp_idf_hal::spi::SpiError, GpioError>> for anyhow::Error {
+        fn from(err: MipidsiError<esp_idf_hal::spi::SpiError, GpioError>) -> Self { anyhow::anyhow!(err.to_string()) }
+    }
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        // .invert_colors(ColorInversion::Inverted) // 外す
         .init(&mut delay)?;
 
     display.clear(Rgb565::BLACK)?;
