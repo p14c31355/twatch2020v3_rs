@@ -79,8 +79,9 @@ fn main() -> Result<(), MyError> {
 
     // unsafeブロックでstatic mutを参照
     let di = unsafe {
-        SpiInterface::new(spi_device, dc, &raw mut DISPLAY_BUFFER)
-    };
+    let raw_ptr: *mut [u8; 4096] = &raw mut DISPLAY_BUFFER;
+    SpiInterface::new(spi_device, dc, &mut *raw_ptr)
+};
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
