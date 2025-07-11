@@ -47,10 +47,10 @@ fn main() -> Result<()> {
 
     // SPIピンの設定
     let sclk = peripherals.pins.gpio18;
-    let sdo  = peripherals.pins.gpio23;
-    let sdi  = Some(peripherals.pins.gpio19);
+    let sdo  = peripherals.pins.gpio19;
+    let sdi  = None;
+    let cs = PinDriver::output(peripherals.pins.gpio5)?;
 
-    // SPIドライバの初期化
     let spi_driver = SpiDriver::new(
         peripherals.spi2,
         sclk,
@@ -59,25 +59,25 @@ fn main() -> Result<()> {
         &DriverConfig::new(),
     )?;
 
-    // SPIデバイスドライバ (CSピンなし)
     let spi_device = SpiDeviceDriver::new(
         spi_driver,
-        Option::<AnyOutputPin>::None,
-        &SpiConfig::new().baudrate(80.MHz().into()),
+        Some(cs), // or Some(cs)
+        &SpiConfig::new().baudrate(20.MHz().into()), // 安定性重視で20MHz
     )?;
+
+    let mut dc = PinDriver::output(peripherals.pins.gpio27)?;
+    let mut bl = PinDriver::output(peripherals.pins.gpio15)?;
+    bl.set_high()?; // バックライトON
+
+    let di = SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER);
 
     let mut delay = FreeRtos;
 
-    // 安全なヒープ確保バッファ
-    let display_buffer = Box::leak(Box::new([0u8; 256]));
-
-    let di = SpiInterface::new(spi_device, DummyNoopPin, display_buffer);
-
     let mut display = Builder::new(ST7789, di)
-    .display_size(240, 240)
-    .invert_colors(ColorInversion::Inverted)
-    .init(&mut delay)
-    .unwrap();
+        .display_size(240, 240)
+        .invert_colors(ColorInversion::Inverted)
+        .init(&mut delay)?;
+
 
 
     // 画面を黒でクリア
