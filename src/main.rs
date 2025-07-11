@@ -49,8 +49,9 @@ fn main() -> Result<()> {
     let sclk = peripherals.pins.gpio18;
     let sdo  = peripherals.pins.gpio19;
     let sdi  = None;
-    let cs = PinDriver::output(peripherals.pins.gpio5)?;
-
+    let mut cs = PinDriver::output(peripherals.pins.gpio5)?;
+    let cs: AnyOutputPin = cs.into();
+    
     let spi_driver = SpiDriver::new(
         peripherals.spi2,
         sclk,
@@ -59,10 +60,10 @@ fn main() -> Result<()> {
         &DriverConfig::new(),
     )?;
 
-    let spi_device = SpiDeviceDriver::new(
+   let spi_device = SpiDeviceDriver::new(
         spi_driver,
-        Some(cs), // or Some(cs)
-        &SpiConfig::new().baudrate(20.MHz().into()), // 安定性重視で20MHz
+        Some(cs),
+        &SpiConfig::new().baudrate(20.MHz().into()),
     )?;
 
     let mut dc = PinDriver::output(peripherals.pins.gpio27)?;
@@ -73,10 +74,12 @@ fn main() -> Result<()> {
 
     let mut delay = FreeRtos;
 
+    // display 初期化
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
         .invert_colors(ColorInversion::Inverted)
-        .init(&mut delay)?;
+        .init(&mut delay)
+        .unwrap();
 
 
 
@@ -94,7 +97,7 @@ fn main() -> Result<()> {
     println!("Display initialized!");
 
     // GPIO0ボタンの入力ピンとしての設定
-    let button = PinDriver::input(peripherals.pins.gpio0)?;
+    let button = PinDriver::input(peripherals.pins.gpio35)?;
 
     // 簡易ポーリングループ
     loop {
