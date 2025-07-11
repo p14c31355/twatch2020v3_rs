@@ -66,20 +66,19 @@ fn main() -> Result<()> {
         &SpiConfig::new().baudrate(80.MHz().into()),
     )?;
 
-    // ディスプレイインタフェース作成 (DCピン無し)
-    let di = unsafe {
-        let buffer: &mut [u8] = &mut DISPLAY_BUFFER;
-        SpiInterface::new(spi_device, DummyNoopPin, buffer)
-    };
-    
-    // ディスプレイ初期化
     let mut delay = FreeRtos;
 
-    let mut display = Builder::new(ST7789, di)
-        .display_size(240, 240)
-        .invert_colors(ColorInversion::Inverted)
-        .init(&mut delay)
-        .unwrap();
+let di = unsafe {
+    let buffer: &mut [u8] = &mut DISPLAY_BUFFER;
+    SpiInterface::new(spi_device, DummyNoopPin, buffer)
+};
+
+let mut display = Builder::new(ST7789, di)
+    .display_size(240, 240)
+    .invert_colors(ColorInversion::Inverted)
+    .init(&mut delay)
+    .unwrap();
+
 
     // 画面を黒でクリア
     display.clear(Rgb565::BLACK).unwrap();
