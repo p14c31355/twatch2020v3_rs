@@ -1,8 +1,5 @@
 use esp_idf_hal::{
-    delay::FreeRtos,
-    gpio::{AnyOutputPin, PinDriver},
-    prelude::*,
-    spi::{config::Config as SpiConfig, config::DriverConfig, SpiDeviceDriver, SpiDriver},
+    delay::FreeRtos, gpio::{AnyOutputPin, PinDriver}, peripheral::Peripheral, prelude::*, spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver}
 };
 
 use embedded_graphics::{
@@ -48,9 +45,8 @@ fn main() -> Result<()> {
     // SPIピンの設定
     let sclk = peripherals.pins.gpio18;
     let sdo  = peripherals.pins.gpio19;
-    let sdi  = None;
-    let mut cs = PinDriver::output(peripherals.pins.gpio5)?;
-    let cs: AnyOutputPin = cs.into();
+    let sdi  = Some(peripherals.pins.gpio19.into_ref());
+    let cs = PinDriver::output(peripherals.pins.gpio5)?.into_ref();
     
     let spi_driver = SpiDriver::new(
         peripherals.spi2,
