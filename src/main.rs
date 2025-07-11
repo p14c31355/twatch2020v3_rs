@@ -68,12 +68,12 @@ fn main() -> Result<()> {
 
     let mut delay = FreeRtos;
 
-let di = unsafe {
-    let buffer: &mut [u8] = &mut DISPLAY_BUFFER;
-    SpiInterface::new(spi_device, DummyNoopPin, buffer)
-};
+    // 安全なヒープ確保バッファ
+    let display_buffer = Box::leak(Box::new([0u8; 256]));
 
-let mut display = Builder::new(ST7789, di)
+    let di = SpiInterface::new(spi_device, DummyNoopPin, display_buffer);
+
+    let mut display = Builder::new(ST7789, di)
     .display_size(240, 240)
     .invert_colors(ColorInversion::Inverted)
     .init(&mut delay)
