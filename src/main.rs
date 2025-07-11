@@ -14,6 +14,7 @@ use embedded_graphics::{
 
 use mipidsi::{models::ST7789, Builder};
 use mipidsi::interface::SpiInterface;
+use mipidsi::options::ColorInversion;
 use anyhow::Result;
 
 // embedded-hal v0.2互換用 ダミーDCピン定義
@@ -67,14 +68,17 @@ fn main() -> Result<()> {
 
     // ディスプレイインタフェース作成 (DCピン無し)
     let di = unsafe {
-    SpiInterface::new(spi_device, DummyNoopPin, &mut DISPLAY_BUFFER)
+        let buffer: &mut [u8] = &mut DISPLAY_BUFFER;
+        SpiInterface::new(spi_device, DummyNoopPin, buffer)
     };
-
+    
     // ディスプレイ初期化
+    let mut delay = FreeRtos;
+
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        .invert_colors(true)
-        .init()
+        .invert_colors(ColorInversion::Inverted)
+        .init(&mut delay)
         .unwrap();
 
     // 画面を黒でクリア
