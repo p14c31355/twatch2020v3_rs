@@ -28,7 +28,7 @@ embedded-graphics = "0.8"
 mipidsi = "0.9"
 
 esp-idf-svc = "0.51.0"
-embedded-hal = "1.0.0"
+# embedded-hal = "0.2.7"
 
 [build-dependencies]
 embuild = "0.33"

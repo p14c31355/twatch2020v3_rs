@@ -17,15 +17,23 @@ use mipidsi::interface::SpiInterface;
 use anyhow::Result;
 
 // embedded-hal v0.2互換用 ダミーDCピン定義
-use embedded_hal::digital::v2::OutputPin;
+// use embedded_hal::digital::v2::OutputPin;
+use esp_idf_hal::digital::v2::OutputPin;
 
 struct DummyNoopPin;
 
 impl OutputPin for DummyNoopPin {
     type Error = core::convert::Infallible;
-    fn set_high(&mut self) -> Result<(), Self::Error> { Ok(()) }
-    fn set_low(&mut self) -> Result<(), Self::Error> { Ok(()) }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
+
 
 // SPIインタフェース用バッファ
 static mut DISPLAY_BUFFER: [u8; 256] = [0u8; 256];
@@ -58,7 +66,7 @@ fn main() -> Result<()> {
 
     // ディスプレイインタフェース作成 (DCピン無し)
     let di = unsafe {
-        SpiInterface::new(spi_device, DummyNoopPin, &mut DISPLAY_BUFFER)
+    SpiInterface::new(spi_device, DummyNoopPin, &mut DISPLAY_BUFFER)
     };
 
     // ディスプレイ初期化
