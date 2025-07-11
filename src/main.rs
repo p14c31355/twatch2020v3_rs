@@ -1,6 +1,7 @@
 use std::fmt;
 use esp_idf_hal::{
-    delay::FreeRtos, gpio::AnyIOPin,
+    delay::FreeRtos,
+    gpio::AnyIOPin,
     gpio::PinDriver,
     prelude::*,
     spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver},
@@ -13,7 +14,10 @@ use embedded_graphics::{
 };
 use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
 
-// 自作のエラー enum
+// 表示用のバッファをstatic mutでグローバルに確保
+static mut DISPLAY_BUFFER: [u8; 4096] = [0; 4096];
+
+// 自作のエラーenum
 #[derive(Debug)]
 enum MyError {
     MipidsiInitError(String),
@@ -73,9 +77,10 @@ fn main() -> Result<(), MyError> {
 
     let mut delay = FreeRtos;
 
-    // Use a local mutable buffer instead of a static mut to avoid `static_mut_refs` lint
-    let mut display_buffer: [u8; 4096] = [0; 4096];
-    let di = SpiInterface::new(spi_device, dc, &mut display_buffer);
+    // unsafeブロックでstatic mutを参照
+    let di = unsafe {
+        SpiInterface::new(spi_device, dc, &raw mut DISPLAY_BUFFER)
+    };
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
