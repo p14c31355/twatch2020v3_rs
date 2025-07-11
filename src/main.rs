@@ -1,5 +1,7 @@
+use esp_idf_hal::gpio::AnyIOPin;
+
 use esp_idf_hal::{
-    delay::FreeRtos, gpio::{AnyOutputPin, PinDriver}, peripheral::Peripheral, prelude::*, spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver}
+    delay::FreeRtos, gpio::{AnyOutputPin, PinDriver}, prelude::*, spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver}
 };
 
 use embedded_graphics::{
@@ -42,12 +44,11 @@ fn main() -> Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
 
-    // SPIピンの設定
     let sclk = peripherals.pins.gpio18;
     let sdo  = peripherals.pins.gpio19;
-    let sdi  = Some(peripherals.pins.gpio19.into_ref());
-    let cs = PinDriver::output(peripherals.pins.gpio5)?.into_ref();
-    
+    let sdi: Option<AnyIOPin> = None;
+    let cs: AnyOutputPin = peripherals.pins.gpio5.into();
+
     let spi_driver = SpiDriver::new(
         peripherals.spi2,
         sclk,
@@ -56,46 +57,41 @@ fn main() -> Result<()> {
         &DriverConfig::new(),
     )?;
 
-   let spi_device = SpiDeviceDriver::new(
+    let spi_device = SpiDeviceDriver::new(
         spi_driver,
         Some(cs),
         &SpiConfig::new().baudrate(20.MHz().into()),
     )?;
 
-    let mut dc = PinDriver::output(peripherals.pins.gpio27)?;
+    let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut bl = PinDriver::output(peripherals.pins.gpio15)?;
     bl.set_high()?; // バックライトON
 
-    let di = SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER);
+    let di = unsafe {
+    SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER)
+};
+
 
     let mut delay = FreeRtos;
 
-    // display 初期化
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
         .invert_colors(ColorInversion::Inverted)
         .init(&mut delay)
         .unwrap();
 
-
-
-    // 画面を黒でクリア
     display.clear(Rgb565::BLACK).unwrap();
 
-    // フォントスタイル設定
     let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
-    // テキスト描画
     Text::new("Hello TWatch 2020 V3!", Point::new(20, 120), text_style)
         .draw(&mut display)
         .unwrap();
 
     println!("Display initialized!");
 
-    // GPIO0ボタンの入力ピンとしての設定
-    let button = PinDriver::input(peripherals.pins.gpio35)?;
+    let button = PinDriver::input(peripherals.pins.gpio0)?;
 
-    // 簡易ポーリングループ
     loop {
         if button.is_low() {
             println!("Button pressed!");
