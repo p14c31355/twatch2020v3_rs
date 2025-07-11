@@ -11,13 +11,24 @@ use embedded_graphics::{
     text::Text,
 };
 use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
-use anyhow::Result;
 
 static mut DISPLAY_BUFFER: [u8; 256] = [0u8; 256];
 
-fn main() -> Result<()> {
+fn main() {
     esp_idf_svc::sys::link_patches();
 
+    if let Err(e) = run() {
+        println!("Error: {:?}", e);
+    }
+}
+
+fn run() -> Result<
+    (),
+    mipidsi::builder::InitError<
+        mipidsi::interface::SpiError<esp_idf_hal::spi::SpiError, esp_idf_hal::gpio::GpioError>,
+        core::convert::Infallible,
+    >,
+> {
     let peripherals = esp_idf_hal::peripherals::Peripherals::take().unwrap();
 
     let sclk = peripherals.pins.gpio18;
@@ -40,29 +51,25 @@ fn main() -> Result<()> {
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut bl = PinDriver::output(peripherals.pins.gpio15)?;
-    bl.set_high()?; // バックライトON
+    bl.set_high().unwrap(); // バックライトON
 
     let mut delay = FreeRtos;
 
-    let di = unsafe {
-        SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER)
-    };
+    let di = unsafe { SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER) };
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        //.invert_colors(ColorInversion::Inverted) // 外す
+        // .invert_colors(ColorInversion::Inverted) // 外す
         .init(&mut delay)?;
 
     display.clear(Rgb565::BLACK)?;
 
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
-    Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style)
-        .draw(&mut display)?;
+    Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style).draw(&mut display)?;
 
     println!("Display initialized and text drawn!");
 
-    // ボタン監視などなしで無限ループ（省略も可）
     loop {
         FreeRtos::delay_ms(1000);
     }
