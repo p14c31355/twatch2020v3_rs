@@ -18,8 +18,8 @@ enum Error {
     Esp(EspError),
     Gpio(esp_idf_hal::gpio::GpioError),
     Spi(esp_idf_hal::spi::SpiError),
-    Mipidsi(Box<dyn std::error::Error + Send + Sync>),
-    Draw(embedded_graphics::prelude::DrawingError),
+    MipidsiInit(String),  // 初期化エラーは文字列に変換
+    Draw(String),         // 描画エラーも文字列化
 }
 
 impl From<EspError> for Error {
@@ -31,9 +31,6 @@ impl From<esp_idf_hal::gpio::GpioError> for Error {
 impl From<esp_idf_hal::spi::SpiError> for Error {
     fn from(e: esp_idf_hal::spi::SpiError) -> Self { Error::Spi(e) }
 }
-impl From<embedded_graphics::prelude::DrawingError> for Error {
-    fn from(e: embedded_graphics::prelude::DrawingError) -> Self { Error::Draw(e) }
-}
 
 fn main() -> Result<(), Error> {
     esp_idf_svc::sys::link_patches();
@@ -42,8 +39,8 @@ fn main() -> Result<(), Error> {
 
     let sclk = peripherals.pins.gpio18;
     let mosi = peripherals.pins.gpio19;
-    let miso = None;
-    let cs = peripherals.pins.gpio5.into();
+    let miso: Option<esp_idf_hal::gpio::AnyInputPin> = None;
+    let cs: esp_idf_hal::gpio::AnyOutputPin = peripherals.pins.gpio5.into();
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?;
     let mut bl = PinDriver::output(peripherals.pins.gpio15)?;
@@ -71,18 +68,20 @@ fn main() -> Result<(), Error> {
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        // .reset_pin(...)  // RSTピンなしなら呼ばない
+        // .reset_pin(...)  // RST未使用ならコメントアウト
         .init(&mut delay)
-        .map_err(|e| Error::Mipidsi(Box::new(e)))?;
+        .map_err(|e| Error::MipidsiInit(format!("{:?}", e)))?;
 
     FreeRtos::delay_ms(100);
 
-    display.clear(Rgb565::BLACK)?;
+    display.clear(Rgb565::BLACK)
+        .map_err(|e| Error::Draw(format!("{:?}", e)))?;
 
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
     Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style)
-        .draw(&mut display)?;
+        .draw(&mut display)
+        .map_err(|e| Error::Draw(format!("{:?}", e)))?;
 
     println!("Display initialized and text drawn!");
 
