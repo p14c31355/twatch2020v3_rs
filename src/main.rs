@@ -1,6 +1,6 @@
 use esp_idf_hal::{
     delay::FreeRtos,
-    gpio::{AnyOutputPin, PinDriver},
+    gpio::{AnyIOPin, AnyOutputPin, PinDriver}, // AnyIOPin を追加
     peripherals::Peripherals,
     prelude::*,
     spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver},
@@ -33,44 +33,65 @@ impl From<esp_idf_hal::spi::SpiError> for Error {
     fn from(e: esp_idf_hal::spi::SpiError) -> Self { Error::Spi(e) }
 }
 
-static mut DISPLAY_BUFFER: [u8; 4096] = [0u8; 4096];
+// 適切なバッファサイズを調整してください。240x240ピクセル、Rgb565（2バイト/ピクセル）なら
+// 240 * 240 * 2 = 115200バイトが必要です。
+// DISPLAY_BUFFERのサイズが足りないと、描画エラーやクラッシュの原因になります。
+// `mipidsi`の `SpiInterface::new` は `WriteOnlyDataCommand` を使う場合、
+// バッファサイズは転送するデータの最大サイズに合わせる必要があります。
+// 全画面描画をバッファで行うなら 115200 を確保すべきですが、
+// 通常は描画コマンドの引数や部分描画のために使うので、転送効率が良い範囲で小さくします。
+// ここでは、例として一般的な転送バッファサイズとして少し大きめに設定します。
+// 実際にフルスクリーン更新を行うにはもっと大きいか、部分的な描画を繰り返すロジックが必要です。
+// ここはデモ目的で、一旦大きめに設定しますが、実際にメモリに乗り切らない可能性もあります。
+// プロジェクトの必要に応じて調整してください。
+static mut DISPLAY_BUFFER: [u8; 16384] = [0u8; 16384]; // 240x240 LCD用ならもっと大きいか、DMAを使うべき。
 
 fn main() -> Result<(), Error> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take().unwrap();
 
-    let sclk = peripherals.pins.gpio18;
-    let mosi = peripherals.pins.gpio19;
-    let miso = None;
-    let cs: AnyOutputPin = peripherals.pins.gpio5.into(); // LCD_CS
+    // --- ピン配置の修正 ---
+    // T-Watch 2020 V3 ピン配置図に基づく
+    let sclk = peripherals.pins.gpio19; // TFT_SCK: IO19
+    let mosi = peripherals.pins.gpio23; // TFT_MOSI: IO23
+    let miso = None::<AnyIOPin>;       // TFT_MISO: NULL (MISOピンは不要なのでNoneを明示的に型指定)
+    let cs: AnyOutputPin = peripherals.pins.gpio5.into(); // TFT_CS: IO5
 
-    let dc = PinDriver::output(peripherals.pins.gpio27)?; // LCD_DC
-    let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // LCD_BL
+    let dc = PinDriver::output(peripherals.pins.gpio27)?; // TFT_DC: IO27
+    let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // TFT_BL: IO15
 
     // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
-    bl.set_high()?; // ON（もし逆なら set_low に）
+    // バックライトON
+    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
 
     let spi_driver = SpiDriver::new(
-        peripherals.spi2,
+        peripherals.spi2, // SPI2を使用
         sclk,
         mosi,
-        miso,
+        miso, // <--- ここで型が Option<AnyIOPin> になるように修正済み
         &DriverConfig::new(),
     )?;
 
     let spi_device = SpiDeviceDriver::new(
         spi_driver,
-        Some(cs),
+        Some(cs), // Chip Selectピンは必須
         &SpiConfig::new().baudrate(40.MHz().into()), // 高速化
     )?;
 
     let mut delay = FreeRtos;
 
-    let di = unsafe { SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER) };
+    // `di` は `SpiInterface<SpiDeviceDriver, PinDriver<Output>, &'static mut [u8]>` の型になる
+    let di = unsafe {
+        // DISPLAY_BUFFER は、mipidsi が内部で使う転送バッファです。
+        // LCDへのデータ転送時にこのバッファを経由します。
+        // フル画面バッファリングとは異なります。
+        SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER)
+    };
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
-        // .reset_pin(...) // RST使わない
+        // TFT_RSTはNULLなので、reset_pinは指定しない
+        // .reset_pin(PinDriver::output(peripherals.pins.gpioXX)?) // 必要であればコメント解除しピンを指定
         .init(&mut delay)
         .map_err(|e| Error::MipidsiInit(format!("{:?}", e)))?;
 
