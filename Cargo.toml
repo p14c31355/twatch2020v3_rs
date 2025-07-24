@@ -23,15 +23,16 @@ experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
 esp-idf-hal = "0.45.2"
+esp-idf-svc = "0.51.0"
+embedded-hal = "1.0.0"
 anyhow = "1"
 embedded-graphics = "0.8"
 mipidsi = "0.9"
-esp-idf-svc = "0.51.0"
-embedded-hal = "1.0.0"
-
+# esp-idf-sys は明示的に必要（esp-idf-svc/hal に依存）
+esp-idf-sys = { version = "0.36.1", features = ["binstart"] }
 
 [build-dependencies]
-embuild = "0.33"
+embuild = "0.33.0"
 
 [package.metadata.esp-idf]
 chip = "esp32"
