@@ -1,0 +1,24 @@
+# wokwi.toml
+# ESP32 Rust Project Configuration for Wokwi
+
+# --- Project Settings ---
+# プロジェクトのタイプを指定します。ESP32 Rustの場合、"esp32-rust" を使用します。
+# Rust プロジェクトで Wokwi にコードをアップロードするには、wokwi-server が必要です。
+# 詳細は Wokwi のドキュメントを参照してください。
+
+[wokwi]
+version = 1
+# このプロジェクトがESP32 Rustであることを示します
+firmware = "build/esp32-firmware.bin" # Rust プロジェクトのファームウェアバイナリのパス
+elf = "build/esp32-firmware.elf"       # ELF ファイルのパス (デバッグ用)
+# `cargo build` コマンドで生成されるターゲットのパスに合わせて適宜変更してください。
+# 通常は `target/xtensa-esp32-espidf/debug/<プロジェクト名>` のようになります。
+
+# --- Wokwi Server (Optional, for advanced usage) ---
+# wokwi-server を使用してローカルのビルド環境からWokwiにファームウェアをアップロードする場合に設定します。
+# 通常はプロジェクトルートに `src/main.rs` があり、`cargo build` でビルドできる状態を想定しています。
+# この設定は Wokwi のオンライン環境で直接コードを記述する場合には不要です。
+#
+# [wokwi.server]
+# port = 9012
+# host = "127.0.0.1"
