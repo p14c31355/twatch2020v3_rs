@@ -91,7 +91,7 @@
     ["irLed1:VCC", "esp:3V3", "red"],
     ["irLed1:GND", "esp:GND", "black"],
     ["irLed1:CATHODE", "esp:IO13", "brown"],
-
+    
     ["touch1:SDA", "esp:IO23", "orange"],
     ["touch1:SCL", "esp:IO32", "orange"],
     ["touch1:VCC", "esp:3V3", "red"],

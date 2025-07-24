@@ -32,3 +32,6 @@ embedded-hal = "1.0.0"
 
 [build-dependencies]
 embuild = "0.33"
+
+[package.metadata.esp-idf]
+chip = "esp32"

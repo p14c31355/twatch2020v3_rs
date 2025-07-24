@@ -9,8 +9,8 @@
 [wokwi]
 version = 1
 # このプロジェクトがESP32 Rustであることを示します
-firmware = "build/esp32-firmware.bin" # Rust プロジェクトのファームウェアバイナリのパス
-elf = "build/esp32-firmware.elf"       # ELF ファイルのパス (デバッグ用)
+firmware = "target/xtensa-esp32-espidf/debug/twatch2020v3_rs" # Rust プロジェクトのファームウェアバイナリのパス
+elf = "target/xtensa-esp32-espidf/debug/twatch2020v3_rs"       # ELF ファイルのパス (デバッグ用)
 # `cargo build` コマンドで生成されるターゲットのパスに合わせて適宜変更してください。
 # 通常は `target/xtensa-esp32-espidf/debug/<プロジェクト名>` のようになります。
 
@@ -19,6 +19,6 @@ elf = "build/esp32-firmware.elf"       # ELF ファイルのパス (デバッグ
 # 通常はプロジェクトルートに `src/main.rs` があり、`cargo build` でビルドできる状態を想定しています。
 # この設定は Wokwi のオンライン環境で直接コードを記述する場合には不要です。
 #
-# [wokwi.server]
-# port = 9012
-# host = "127.0.0.1"
+[wokwi.server]
+port = 9012
+host = "127.0.0.1"
