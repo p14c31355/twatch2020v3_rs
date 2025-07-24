@@ -62,7 +62,7 @@ fn main() -> Result<(), Error> {
 
     // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
     // バックライトON
-    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
+    bl.set_low()?; // または bl.set_low()?; どちらか光る方で
 
     let spi_driver = SpiDriver::new(
         peripherals.spi2, // SPI2を使用
@@ -75,18 +75,25 @@ fn main() -> Result<(), Error> {
     let spi_device = SpiDeviceDriver::new(
         spi_driver,
         Some(cs), // Chip Selectピンは必須
-        &SpiConfig::new().baudrate(40.MHz().into()), // 高速化
+        &SpiConfig::new().baudrate(20.MHz().into()), // 高速化
     )?;
 
     let mut delay = FreeRtos;
 
     // `di` は `SpiInterface<SpiDeviceDriver, PinDriver<Output>, &'static mut [u8]>` の型になる
+    // DISPLAY_BUFFER は、mipidsi が内部で使う転送バッファです。
+    // LCDへのデータ転送時にこのバッファを経由します。
+    // フル画面バッファリングとは異なります。
+    // 修正後のコード (src/main.rs の 88行目付近)
     let di = unsafe {
-        // DISPLAY_BUFFER は、mipidsi が内部で使う転送バッファです。
-        // LCDへのデータ転送時にこのバッファを経由します。
-        // フル画面バッファリングとは異なります。
-        SpiInterface::new(spi_device, dc, &mut DISPLAY_BUFFER)
-    };
+    // raw pointer を作成
+    let raw_ptr: *mut [u8] = &raw mut DISPLAY_BUFFER;
+    // raw pointer から &mut スライスに再変換
+    // ここで unsafe が必要なのは、raw pointer から参照を作成するため
+    let buffer_slice: &mut [u8] = &mut *raw_ptr;
+
+    SpiInterface::new(spi_device, dc, buffer_slice)
+};
 
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
@@ -106,6 +113,7 @@ fn main() -> Result<(), Error> {
     println!("Display initialized and text drawn!");
 
     loop {
+        bl.toggle().expect("Failed to toggle backlight"); // バックライトをトグル
         FreeRtos::delay_ms(1000);
     }
 }
