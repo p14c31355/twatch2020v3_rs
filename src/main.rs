@@ -52,17 +52,17 @@ fn main() -> Result<(), Error> {
 
     // --- ピン配置の修正 ---
     // T-Watch 2020 V3 ピン配置図に基づく
-    let sclk = peripherals.pins.gpio19; // TFT_SCK: IO19
-    let mosi = peripherals.pins.gpio23; // TFT_MOSI: IO23
-    let miso = None::<AnyIOPin>;       // TFT_MISO: NULL (MISOピンは不要なのでNoneを明示的に型指定)
-    let cs: AnyOutputPin = peripherals.pins.gpio5.into(); // TFT_CS: IO5
+    let sclk = peripherals.pins.gpio18; // **修正: TFT_SCLK は IO18**
+    let mosi = peripherals.pins.gpio19; // **修正: TFT_MOSI は IO19**
+    let miso = None::<AnyIOPin>;        // TFT_MISO は NULL なので None で正しい
+    let cs: AnyOutputPin = peripherals.pins.gpio5.into(); // TFT_CS は IO5 で正しい
 
-    let dc = PinDriver::output(peripherals.pins.gpio27)?; // TFT_DC: IO27
-    let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // TFT_BL: IO15
+    let dc = PinDriver::output(peripherals.pins.gpio27)?; // TFT_DC は IO27 で正しい
+    let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // TFT_BL は IO15 で正しい
 
     // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
     // バックライトON
-    bl.set_low()?; // または bl.set_low()?; どちらか光る方で
+    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
 
     let spi_driver = SpiDriver::new(
         peripherals.spi2, // SPI2を使用
@@ -102,10 +102,10 @@ fn main() -> Result<(), Error> {
         .init(&mut delay)
         .map_err(|e| Error::MipidsiInit(format!("{:?}", e)))?;
 
-    display.clear(Rgb565::BLACK)
+    display.clear(Rgb565::WHITE)
         .map_err(|e| Error::Draw(format!("{:?}", e)))?;
 
-    let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
+    let style = MonoTextStyle::new(&FONT_6X10, Rgb565::BLACK);
     Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style)
         .draw(&mut display)
         .map_err(|e| Error::Draw(format!("{:?}", e)))?;
@@ -113,7 +113,17 @@ fn main() -> Result<(), Error> {
     println!("Display initialized and text drawn!");
 
     loop {
-        bl.toggle().expect("Failed to toggle backlight"); // バックライトをトグル
-        FreeRtos::delay_ms(1000);
+        // bl.toggle().expect("Failed to toggle backlight"); // これをコメントアウトまたは削除
+
+        bl.toggle()
+            .map_err(|e| {
+                println!("ERROR: Failed to toggle backlight: {:?}", e); // ここで具体的なエラーを出力
+                Error::Gpio(e) // Err値を返すことで、main関数がエラーとして終了し、エラー情報が表示されやすくなります。
+            })?;
+
+        FreeRtos::delay_ms(1000).map_err(|e| {
+            println!("ERROR: Delay failed: {:?}", e);
+            Error::Esp(e)
+        })?;
     }
 }
