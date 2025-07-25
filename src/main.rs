@@ -62,7 +62,7 @@ fn main() -> Result<(), Error> {
 
     // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
     // バックライトON
-    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
+    bl.set_low()?; // または bl.set_low()?; どちらか光る方で
 
     let spi_driver = SpiDriver::new(
         peripherals.spi2, // SPI2を使用
@@ -113,17 +113,13 @@ fn main() -> Result<(), Error> {
     println!("Display initialized and text drawn!");
 
     loop {
-        // bl.toggle().expect("Failed to toggle backlight"); // これをコメントアウトまたは削除
-
         bl.toggle()
             .map_err(|e| {
                 println!("ERROR: Failed to toggle backlight: {:?}", e); // ここで具体的なエラーを出力
-                Error::Gpio(e) // Err値を返すことで、main関数がエラーとして終了し、エラー情報が表示されやすくなります。
+                Error::Gpio(e.into()) // Err値を返すことで、main関数がエラーとして終了し、エラー情報が表示されやすくなります。
             })?;
 
-        FreeRtos::delay_ms(1000).map_err(|e| {
-            println!("ERROR: Delay failed: {:?}", e);
-            Error::Esp(e)
-        })?;
+        FreeRtos::delay_ms(1000); // delay_ms は Result を返さないので map_err は不要
+        
     }
 }
