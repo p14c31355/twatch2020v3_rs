@@ -59,10 +59,12 @@ fn main() -> Result<(), Error> {
 
     let dc = PinDriver::output(peripherals.pins.gpio27)?; // TFT_DC は IO27 で正しい
     let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // TFT_BL は IO15 で正しい
+    println!("INFO: GPIO15 (Backlight) configured as output successfully.");
 
     // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
     // バックライトON
-    bl.set_low()?; // または bl.set_low()?; どちらか光る方で
+    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
+    println!("INFO: Backlight pin set to HIGH."); // LOW にした場合は LOW に変更
 
     let spi_driver = SpiDriver::new(
         peripherals.spi2, // SPI2を使用
@@ -95,6 +97,7 @@ fn main() -> Result<(), Error> {
     SpiInterface::new(spi_device, dc, buffer_slice)
 };
 
+    println!("INFO: Starting display initialization...");
     let mut display = Builder::new(ST7789, di)
         .display_size(240, 240)
         // TFT_RSTはNULLなので、reset_pinは指定しない
@@ -102,6 +105,8 @@ fn main() -> Result<(), Error> {
         .init(&mut delay)
         .map_err(|e| Error::MipidsiInit(format!("{:?}", e)))?;
 
+        println!("INFO: Display initialized successfully.");
+        
     display.clear(Rgb565::WHITE)
         .map_err(|e| Error::Draw(format!("{:?}", e)))?;
 
