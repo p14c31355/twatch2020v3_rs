@@ -14,6 +14,14 @@ use embedded_graphics::{
 };
 use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
 
+use std::{thread, time::Duration};
+use esp_idf_hal::{
+    prelude::*,
+    ledc::{config::TimerConfig as LedcTimerConfig, LedcDriver, LedcTimerDriver, Resolution},
+    timer::Timer,
+};
+use anyhow::Result;
+
 #[derive(Debug)]
 enum Error {
     Esp(EspError),
@@ -47,84 +55,30 @@ impl From<esp_idf_hal::spi::SpiError> for Error {
 static mut DISPLAY_BUFFER: [u8; 16384] = [0u8; 16384]; // 240x240 LCD用ならもっと大きいか、DMAを使うべき。
 
 fn main() -> Result<(), Error> {
-    esp_idf_svc::sys::link_patches();
+    esp_idf_sys::link_patches();
     let peripherals = Peripherals::take().unwrap();
 
-    // --- ピン配置の修正 ---
-    // T-Watch 2020 V3 ピン配置図に基づく
-    let sclk = peripherals.pins.gpio18; // **修正: TFT_SCLK は IO18**
-    let mosi = peripherals.pins.gpio19; // **修正: TFT_MOSI は IO19**
-    let miso = None::<AnyIOPin>;        // TFT_MISO は NULL なので None で正しい
-    let cs: AnyOutputPin = peripherals.pins.gpio5.into(); // TFT_CS は IO5 で正しい
-
-    let dc = PinDriver::output(peripherals.pins.gpio27)?; // TFT_DC は IO27 で正しい
-    let mut bl = PinDriver::output(peripherals.pins.gpio15)?; // TFT_BL は IO15 で正しい
-    println!("INFO: GPIO15 (Backlight) configured as output successfully.");
-
-    // V3では LOW = ON の可能性あり。とりあえず HIGH から試す
-    // バックライトON
-    bl.set_high()?; // または bl.set_low()?; どちらか光る方で
-    println!("INFO: Backlight pin set to HIGH."); // LOW にした場合は LOW に変更
-
-    let spi_driver = SpiDriver::new(
-        peripherals.spi2, // SPI2を使用
-        sclk,
-        mosi,
-        miso, // <--- ここで型が Option<AnyIOPin> になるように修正済み
-        &DriverConfig::new(),
+    let timer = LedcTimerDriver::new(
+        peripherals.ledc.timer0,
+        &LedcTimerConfig::new().resolution(Resolution::Bits8).frequency(100.Hz()),
+    )?;
+    let mut backlight = LedcDriver::new(
+        peripherals.ledc.channel0,
+        &timer,
+        peripherals.pins.gpio15,
     )?;
 
-    let spi_device = SpiDeviceDriver::new(
-        spi_driver,
-        Some(cs), // Chip Selectピンは必須
-        &SpiConfig::new().baudrate(20.MHz().into()), // 高速化
-    )?;
+    println!("バックライト: 50%");
+    backlight.set_duty(128)?;
+    thread::sleep(Duration::from_secs(2));
 
-    let mut delay = FreeRtos;
+    println!("バックライト: Max 100%");
+    backlight.set_duty(255)?;
+    thread::sleep(Duration::from_secs(2));
 
-    // `di` は `SpiInterface<SpiDeviceDriver, PinDriver<Output>, &'static mut [u8]>` の型になる
-    // DISPLAY_BUFFER は、mipidsi が内部で使う転送バッファです。
-    // LCDへのデータ転送時にこのバッファを経由します。
-    // フル画面バッファリングとは異なります。
-    // 修正後のコード (src/main.rs の 88行目付近)
-    let di = unsafe {
-    // raw pointer を作成
-    let raw_ptr: *mut [u8] = &raw mut DISPLAY_BUFFER;
-    // raw pointer から &mut スライスに再変換
-    // ここで unsafe が必要なのは、raw pointer から参照を作成するため
-    let buffer_slice: &mut [u8] = &mut *raw_ptr;
+    println!("バックライト: 0%");
+    backlight.set_duty(0)?;
+    thread::sleep(Duration::from_secs(2));
 
-    SpiInterface::new(spi_device, dc, buffer_slice)
-};
-
-    println!("INFO: Starting display initialization...");
-    let mut display = Builder::new(ST7789, di)
-        .display_size(240, 240)
-        // TFT_RSTはNULLなので、reset_pinは指定しない
-        // .reset_pin(PinDriver::output(peripherals.pins.gpioXX)?) // 必要であればコメント解除しピンを指定
-        .init(&mut delay)
-        .map_err(|e| Error::MipidsiInit(format!("{:?}", e)))?;
-
-        println!("INFO: Display initialized successfully.");
-        
-    display.clear(Rgb565::WHITE)
-        .map_err(|e| Error::Draw(format!("{:?}", e)))?;
-
-    let style = MonoTextStyle::new(&FONT_6X10, Rgb565::BLACK);
-    Text::new("Hello TWatch 2020 V3!", Point::new(10, 120), style)
-        .draw(&mut display)
-        .map_err(|e| Error::Draw(format!("{:?}", e)))?;
-
-    println!("Display initialized and text drawn!");
-
-    loop {
-        bl.toggle()
-            .map_err(|e| {
-                println!("ERROR: Failed to toggle backlight: {:?}", e); // ここで具体的なエラーを出力
-                Error::Gpio(e.into()) // Err値を返すことで、main関数がエラーとして終了し、エラー情報が表示されやすくなります。
-            })?;
-
-        FreeRtos::delay_ms(1000); // delay_ms は Result を返さないので map_err は不要
-        
-    }
+    Ok(())
 }
