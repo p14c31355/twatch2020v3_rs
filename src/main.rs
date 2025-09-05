@@ -1,84 +1,52 @@
 use esp_idf_hal::{
-    delay::FreeRtos,
-    gpio::{AnyIOPin, AnyOutputPin, PinDriver}, // AnyIOPin を追加
+    i2c::{I2cConfig, I2cDriver},
+    ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver, Resolution},
     peripherals::Peripherals,
     prelude::*,
-    spi::{config::{Config as SpiConfig, DriverConfig}, SpiDeviceDriver, SpiDriver},
-    sys::EspError,
-};
-use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
-    pixelcolor::Rgb565,
-    prelude::*,
-    text::Text,
-};
-use mipidsi::{Builder, interface::SpiInterface, models::ST7789};
-
-use std::{thread, time::Duration};
-use esp_idf_hal::{
-    prelude::*,
-    ledc::{config::TimerConfig as LedcTimerConfig, LedcDriver, LedcTimerDriver, Resolution},
-    timer::Timer,
 };
 use anyhow::Result;
 
-#[derive(Debug)]
-enum Error {
-    Esp(EspError),
-    Gpio(esp_idf_hal::gpio::GpioError),
-    Spi(esp_idf_hal::spi::SpiError),
-    MipidsiInit(String),
-    Draw(String),
-}
-
-impl From<EspError> for Error {
-    fn from(e: EspError) -> Self { Error::Esp(e) }
-}
-impl From<esp_idf_hal::gpio::GpioError> for Error {
-    fn from(e: esp_idf_hal::gpio::GpioError) -> Self { Error::Gpio(e) }
-}
-impl From<esp_idf_hal::spi::SpiError> for Error {
-    fn from(e: esp_idf_hal::spi::SpiError) -> Self { Error::Spi(e) }
-}
-
-// 適切なバッファサイズを調整してください。240x240ピクセル、Rgb565（2バイト/ピクセル）なら
-// 240 * 240 * 2 = 115200バイトが必要です。
-// DISPLAY_BUFFERのサイズが足りないと、描画エラーやクラッシュの原因になります。
-// `mipidsi`の `SpiInterface::new` は `WriteOnlyDataCommand` を使う場合、
-// バッファサイズは転送するデータの最大サイズに合わせる必要があります。
-// 全画面描画をバッファで行うなら 115200 を確保すべきですが、
-// 通常は描画コマンドの引数や部分描画のために使うので、転送効率が良い範囲で小さくします。
-// ここでは、例として一般的な転送バッファサイズとして少し大きめに設定します。
-// 実際にフルスクリーン更新を行うにはもっと大きいか、部分的な描画を繰り返すロジックが必要です。
-// ここはデモ目的で、一旦大きめに設定しますが、実際にメモリに乗り切らない可能性もあります。
-// プロジェクトの必要に応じて調整してください。
-static mut DISPLAY_BUFFER: [u8; 16384] = [0u8; 16384]; // 240x240 LCD用ならもっと大きいか、DMAを使うべき。
-
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     esp_idf_sys::link_patches();
-    let peripherals = Peripherals::take().unwrap();
 
+    let p = Peripherals::take()?;
+
+    // T-Watch の内部I2Cバス（AXP202/RTC/タッチ等）: SDA=GPIO21, SCL=GPIO22
+    let i2c_cfg = I2cConfig::new().baudrate(Hertz(100_000));
+    let mut i2c = I2cDriver::new(p.i2c0, p.pins.gpio21, p.pins.gpio22, &i2c_cfg)?;
+    
+    println!("I2C init OK");
+    // I2Cスキャン
+    for addr in 0x00..=0x7F {
+        if i2c.write(addr, &[0], 0).is_ok() {
+            println!("Found I2C device @ 0x{:02X}", addr);
+        }
+    }
+    
+    // 1) AXP202 のアドレスを決める（0x34 or 0x35）
+    let axp_addr: u8 = 0x35; // 必要なら 0x35 に変更（I2Cスキャンで要確認）
+
+    // 2) REG 0x12 を読んで LDO2(bit2) を ON
+    let reg = 0x12u8;
+    let mut cur = [0u8; 1];
+    i2c.write_read(axp_addr, &[reg], &mut cur, 0)?;
+    let new = cur[0] | 0x04; // bit2=LDO2 enable
+    i2c.write(axp_addr, &[reg, new], 0)?;
+
+    // 3) GPIO12 に PWM（LEDC）: duty>0 で点灯
     let timer = LedcTimerDriver::new(
-        peripherals.ledc.timer0,
-        &LedcTimerConfig::new().resolution(Resolution::Bits8).frequency(100.Hz()),
+        p.ledc.timer0,
+        &TimerConfig::new().frequency(Hertz(5_000)).resolution(Resolution::Bits8),
     )?;
-    let mut backlight = LedcDriver::new(
-        peripherals.ledc.channel0,
+    let mut bl = LedcDriver::new(
+        p.ledc.channel0,
         &timer,
-        peripherals.pins.gpio15,
+        p.pins.gpio12, // Backlight control pin
     )?;
+    bl.set_duty(bl.get_max_duty() / 2)?; // 50% くらいで点灯確認
 
-    println!("バックライト: 50%");
-    backlight.set_duty(128)?;
-    thread::sleep(Duration::from_secs(2));
-
-    println!("バックライト: Max 100%");
-    backlight.set_duty(255)?;
-    thread::sleep(Duration::from_secs(2));
-
-    println!("バックライト: 0%");
-    backlight.set_duty(0)?;
-    thread::sleep(Duration::from_secs(2));
-
-    Ok(())
+    // ここから先で ST7789V の初期化や描画を行う
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }
