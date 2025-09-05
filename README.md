@@ -2,13 +2,13 @@
 TTGO T-Watch 2020 v3 firmware written in Rustlang
 
 ### I/Os
- - Interrupt RTC: IO37
+ - Interrupt RTC: PCF8563: IO37
  - PMU/AXP202(Button-pull up resistance)
    - interrupt IO35
    - I2C_SDA IO21
    - I2C_SCL IO22
  - IR IO13
- - Touch Board
+ - Touch Board: FT6236
    - interrupt IO38
    - I2C_SDA IO23
    - I2C_SCL IO32
