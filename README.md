@@ -2,13 +2,13 @@
 TTGO T-Watch 2020 v3 firmware written in Rustlang
 
 ### I/Os
- - Interrupt RTC: PCF8563: IO37
+ - Interrupt RTC/PCF8563: IO37
  - PMU/AXP202(Button-pull up resistance)
    - interrupt IO35
    - I2C_SDA IO21
    - I2C_SCL IO22
  - IR IO13
- - Touch Board: FT6236
+ - Touch Board/FT6236
    - interrupt IO38
    - I2C_SDA IO23
    - I2C_SCL IO32
@@ -59,14 +59,3 @@ cargo +esp build
 3. Install Rust on wsl2
 4. Install build-essential on wsl2
 5. espup install
-
-## References
-https://lang-ship.com/blog/work/esp32-std-rust-1/
-<br>
-https://github.com/pyaillet/twatch-idf-rs
-<br>
-https://note.com/shirokumamake/n/na6c2897b9f82
-<br>
-https://github.com/esp-rs/esp-template/issues/57
-<br>
-https://www.reddit.com/r/esp32/comments/1b5q8j4/anybody_know_which_gpio_pin_the_physical_button/
