@@ -3,9 +3,10 @@ target = "xtensa-esp32-espidf"
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"
-## add --list-all-ports because espflash::no_serial error
+rustflags = ["--cfg", "espidf_time64"]
+
+# T-Watch v3 runner
 runner = "espflash flash --monitor --list-all-ports"
-rustflags = [ "--cfg",  "espidf_time64"]
 
 [unstable]
 build-std = ["std", "panic_abort"]
