@@ -29,6 +29,7 @@ embedded-hal = "1.0.0"
 anyhow = "1"
 embedded-graphics = "0.8"
 mipidsi = "0.9"
+axp20x = "0.0.3"
 # esp-idf-sys は明示的に必要（esp-idf-svc/hal に依存）
 
 [build-dependencies]
