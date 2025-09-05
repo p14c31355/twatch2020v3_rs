@@ -4,14 +4,14 @@ version = "0.1.0"
 authors = ["Placeless <thinkoverheat@gmail.com>"]
 edition = "2024"
 resolver = "2"
-rust-version = "1.87"
+rust-version = "1.88"
 
 [[bin]]
 name = "twatch2020v3_rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 
 [profile.dev]
 debug = true    # Symbols are nice and they don't increase the size on Flash
@@ -22,17 +22,17 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
-esp-idf-hal = "0.45.2"
-esp-idf-svc = "0.51.0"
+esp-idf-svc = "0.51"
+esp-idf-hal = "0.45.2" # Add esp-idf-hal dependency
+esp-idf-sys = "0.36.1"
 embedded-hal = "1.0.0"
 anyhow = "1"
 embedded-graphics = "0.8"
 mipidsi = "0.9"
 # esp-idf-sys は明示的に必要（esp-idf-svc/hal に依存）
-esp-idf-sys = { version = "0.36.1", features = ["binstart"] }
 
 [build-dependencies]
-embuild = "0.33.0"
+embuild = "0.33.1"
 
 [package.metadata.esp-idf]
 chip = "esp32"
