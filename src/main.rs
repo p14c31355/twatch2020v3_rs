@@ -34,7 +34,6 @@ fn main() -> Result<()> {
         &mut display_buffer,
     )?;
 
-    // App構造体がI2Cドライバを所有するように変更
     let mut app = App::new(i2c_driver, display);
 
     app.run(&mut delay)?;

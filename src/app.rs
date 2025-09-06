@@ -5,7 +5,6 @@ use embedded_graphics::{mono_font::{MonoTextStyle, ascii::FONT_6X10}, text::Text
 use esp_idf_hal::delay::FreeRtos;
 use chrono::{NaiveTime, Timelike};
 use esp_idf_hal::i2c::I2cDriver;
-use embedded_hal::i2c::I2c;
 
 #[derive(Debug)]
 pub enum AppState {
