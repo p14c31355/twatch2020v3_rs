@@ -1,4 +1,4 @@
-# twatch2020v3_rs
+# twatch2020v3-rs
 TTGO T-Watch 2020 v3 firmware written in Rustlang
 
 ### I/Os
