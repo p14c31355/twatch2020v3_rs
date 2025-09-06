@@ -19,18 +19,18 @@ impl ErrorType for I2cManager {
 
 impl embedded_hal::i2c::I2c<SevenBitAddress> for &mut I2cManager {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(self.i2c.read(addr, buffer, Duration::from_millis(100).as_millis() as u32).map_err(|e| e)?)
+        Ok(self.i2c.read(addr, buffer, Duration::from_millis(100).as_millis() as u32)?)
     }
 
     fn write(&mut self, addr: u8, buffer: &[u8]) -> Result<(), Self::Error> {
-        Ok(self.i2c.write(addr, buffer, Duration::from_millis(100).as_millis() as u32).map_err(|e| e)?)
+        Ok(self.i2c.write(addr, buffer, Duration::from_millis(100).as_millis() as u32)?)
     }
 
     fn write_read(&mut self, addr: u8, wr_buffer: &[u8], rd_buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(self.i2c.write_read(addr, wr_buffer, rd_buffer, Duration::from_millis(100).as_millis() as u32).map_err(|e| e)?)
+        Ok(self.i2c.write_read(addr, wr_buffer, rd_buffer, Duration::from_millis(100).as_millis() as u32)?)
     }
 
     fn transaction(&mut self, addr: u8, operations: &mut [Operation]) -> Result<(), Self::Error> {
-        Ok(self.i2c.transaction(addr, operations, Duration::from_millis(100).as_millis() as u32).map_err(|e| e)?)
+        Ok(self.i2c.transaction(addr, operations, Duration::from_millis(100).as_millis() as u32)?)
     }
 }

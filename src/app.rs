@@ -12,7 +12,14 @@ use embedded_graphics::{
     Drawable,
 };
 use esp_idf_hal::delay::FreeRtos;
+use esp_idf_hal::delay::Delay;
 use chrono::{NaiveTime, Timelike};
+
+const DELAY_MS: i32 = 100;
+pub fn feed_watchdog() {
+    Delay::new(DELAY_MS as u32).delay_ms(DELAY_MS as u32);
+}
+
 
 #[derive(Debug)]
 pub enum AppState {
@@ -43,27 +50,25 @@ impl<'a> App<'a> {
     pub fn run(&mut self, _delay: &mut FreeRtos) -> Result<()> {
         loop {
             self.draw_status_bar()?;
-            unsafe { esp_idf_sys::esp_task_wdt_reset() };
-            FreeRtos::delay_ms(1);
+            feed_watchdog();
 
             match self.state {
                 AppState::Launcher => self.show_launcher()?,
                 AppState::Settings => self.show_settings()?,
                 AppState::Battery => self.show_battery()?,
             }
-            unsafe { esp_idf_sys::esp_task_wdt_reset() };
-            FreeRtos::delay_ms(1);
+            feed_watchdog();
         }
     }
 
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
         Text::new("Launcher: tap for apps", Point::new(10, 40), text_style)
             .draw(&mut self.display.display);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_button1() {
@@ -73,18 +78,19 @@ impl<'a> App<'a> {
             }
         }
 
+        feed_watchdog();
         FreeRtos::delay_ms(20);
         Ok(())
     }
 
     fn show_settings(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
         Text::new("Settings", Point::new(10, 40), text_style)
             .draw(&mut self.display.display);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
@@ -92,19 +98,20 @@ impl<'a> App<'a> {
             }
         }
 
+        feed_watchdog();
         FreeRtos::delay_ms(20);
         Ok(())
     }
 
     fn show_battery(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         let voltage = self.power.read_voltage(&mut self.i2c)?;
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
-        Text::new(&format!("Battery: {} mV", voltage), Point::new(10, 40), text_style)
+        Text::new(&format!("Battery: {voltage} mV"), Point::new(10, 40), text_style)
             .draw(&mut self.display.display);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
@@ -112,6 +119,7 @@ impl<'a> App<'a> {
             }
         }
 
+        feed_watchdog();
         FreeRtos::delay_ms(20);
         Ok(())
     }
@@ -123,13 +131,15 @@ impl<'a> App<'a> {
         let time_str = format!("{:02}:{:02}", now.hour(), now.minute());
         Text::new(&time_str, Point::new(10, 10), text_style)
             .draw(&mut self.display.display);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
 
         let battery_percentage = self.power.get_battery_percentage(&mut self.i2c)?;
-        let battery_str = format!("{}%", battery_percentage);
+        let battery_str = format!("{battery_percentage}%");
         Text::new(&battery_str, Point::new(200, 10), text_style)
             .draw(&mut self.display.display);
-        FreeRtos::delay_ms(5);
+        feed_watchdog();
+
+        FreeRtos::delay_ms(20);
 
         Ok(())
     }
