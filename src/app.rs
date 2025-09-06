@@ -18,17 +18,17 @@ pub enum AppState {
     Battery,
 }
 
-pub struct App {
+pub struct App<'a> {
     i2c: I2cManager,
-    display: TwatchDisplay,
-    power: PowerManager,
-    touch: Touch,
+    display: TwatchDisplay<'a>,
+    power: PowerManager<'a>,
+    touch: Touch<'a>,
     state: AppState,
 }
 
 
-impl App {
-    pub fn new(i2c: I2cManager, display: TwatchDisplay, power: PowerManager, touch: Touch) -> Self {
+impl<'a> App<'a> {
+    pub fn new(i2c: I2cManager, display: TwatchDisplay<'a>, power: PowerManager<'a>, touch: Touch<'a>) -> Self {
         Self {
             i2c,
             display,

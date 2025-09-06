@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         &i2c_cfg,
     )?;
 
-    let i2c_manager = I2cManager::new(i2c_hal_driver);
+    let mut i2c_manager = I2cManager::new(i2c_hal_driver);
 
     let display = TwatchDisplay::new(
         peripherals.spi2,

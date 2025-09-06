@@ -7,19 +7,19 @@ use esp_idf_hal::{
     units::FromValueType,
 };
 use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
-use embedded_graphics::{geometry::Size, prelude::RgbColor};
+use embedded_graphics::prelude::RgbColor;
 use embedded_graphics::pixelcolor::Rgb565;
-use display_interface_spi::SPIInterfaceNoCS;
+use display_interface_spi::SPIInterface;
 
-pub struct TwatchDisplay {
+pub struct TwatchDisplay<'a> {
     pub display: Display<
-        SpiInterface<SpiDeviceDriver<'static, SpiDriver<'static>>, PinDriver<'static, Gpio27, Output>>,
+        SpiInterface<'a, SpiDeviceDriver<'static, SpiDriver<'static>>, PinDriver<'static, Gpio27, Output>>,
         ST7789,
         PinDriver<'static, Gpio33, Output>,
     >,
 }
 
-impl TwatchDisplay {
+impl TwatchDisplay<'_> {
     pub fn new(
         spi2: SPI2,
         gpio18: esp_idf_hal::gpio::Gpio18,
@@ -45,10 +45,10 @@ impl TwatchDisplay {
         let dc: PinDriver<Gpio27, Output> = PinDriver::output(gpio27)?;
         let rst: PinDriver<Gpio33, Output> = PinDriver::output(gpio33)?;
 
-        let spi = SPIInterfaceNoCS::new(spi_device, dc);
+        let spi = SPIInterface::new(spi_device, dc);
 
         let display = Builder::new(ST7789, spi)
-            .with_display_size(240, 240)
+            .display_size(240, 240)
             .with_color_order(ColorOrder::Rgb)
             .with_reset_pin(rst)
             .init(&mut FreeRtos, Rgb565::BLACK)
