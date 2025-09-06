@@ -12,15 +12,16 @@ pub enum AppState {
     Battery,
 }
 
+// Remove lifetime parameters from App struct
 pub struct App<'a> {
     power: PowerManager<'a>,
     display: TwatchDisplay<'a>,
-    touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
+    touch: Touch<'a, pcf8563::Error>,
     state: AppState,
 }
 
-impl<'a> App<'a> {
-    pub fn new(
+impl App<'_> {
+    pub fn new<'a>(
         power: PowerManager<'a>,
         display: TwatchDisplay<'a>,
         touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
