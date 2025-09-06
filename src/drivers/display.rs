@@ -11,15 +11,15 @@ use embedded_graphics::{geometry::Size, prelude::RgbColor};
 use embedded_graphics::pixelcolor::Rgb565;
 use display_interface_spi::SPIInterfaceNoCS;
 
-pub struct TwatchDisplay<'a> {
+pub struct TwatchDisplay {
     pub display: Display<
-        SpiInterface<'a, SpiDeviceDriver<'a, SpiDriver<'a>>, PinDriver<'a, Gpio27, Output>>,
+        SpiInterface<SpiDeviceDriver<'static, SpiDriver<'static>>, PinDriver<'static, Gpio27, Output>>,
         ST7789,
-        PinDriver<'a, Gpio33, Output>,
+        PinDriver<'static, Gpio33, Output>,
     >,
 }
 
-impl<'a> TwatchDisplay<'a> {
+impl TwatchDisplay {
     pub fn new(
         spi2: SPI2,
         gpio18: esp_idf_hal::gpio::Gpio18,

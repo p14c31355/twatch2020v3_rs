@@ -11,6 +11,8 @@ use esp_idf_hal::prelude::*;
 use drivers::display::TwatchDisplay;
 use manager::I2cManager;
 use app::App;
+use drivers::axp::PowerManager;
+use drivers::touch::Touch;
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
@@ -26,9 +28,9 @@ fn main() -> Result<()> {
         &i2c_cfg,
     )?;
 
-    let mut i2c_manager = I2cManager::new(i2c_hal_driver);
+    let i2c_manager = I2cManager::new(i2c_hal_driver);
 
-    let mut display = TwatchDisplay::new(
+    let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
         peripherals.pins.gpio23,
@@ -37,7 +39,10 @@ fn main() -> Result<()> {
         peripherals.pins.gpio33,
     )?;
 
-    let mut app = App::new(&mut i2c_manager, &mut display);
+    let power = PowerManager::new(&mut i2c_manager)?;
+    let touch = Touch::new(&mut i2c_manager)?;
+
+    let mut app = App::new(i2c_manager, display, power, touch);
 
     app.run(&mut delay)?;
     Ok(())

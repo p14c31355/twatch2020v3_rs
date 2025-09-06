@@ -1,9 +1,7 @@
 // src/manager.rs
-use esp_idf_hal::i2c::{I2cDriver, I2cError, I2cError as EspI2cError};
+use esp_idf_hal::i2c::{I2cDriver, I2cError};
 use embedded_hal::i2c::{SevenBitAddress, Operation, ErrorType};
 use core::time::Duration;
-use esp_idf_hal::delay::FreeRtos;
-use embedded_hal::i2c::I2c as I2cHal;
 
 pub struct I2cManager {
     i2c: I2cDriver<'static>,
