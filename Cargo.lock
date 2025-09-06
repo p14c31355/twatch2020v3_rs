@@ -248,7 +248,9 @@ checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -795,6 +797,16 @@ dependencies = [
  "libc",
  "nix",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "ft6x36"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a5a8dd73b86527b6106e5152dc8b8dde2d61d9dc445485eb70ce494feadf327"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "num_enum 0.7.4",
 ]
 
 [[package]]
@@ -1713,12 +1725,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axp20x",
+ "chrono",
  "embedded-graphics",
  "embedded-hal 1.0.0",
  "embuild",
  "esp-idf-hal",
  "esp-idf-svc",
  "esp-idf-sys",
+ "ft6x36",
  "mipidsi",
  "mousefood",
  "pcf8563",

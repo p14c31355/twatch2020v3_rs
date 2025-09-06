@@ -1,46 +1,65 @@
 // src/app.rs
 use anyhow::Result;
-use crate::drivers::{axp::PowerManager, display::MyDisplay, touch::Touch};
-use esp_idf_hal::delay::FreeRtos;
+use crate::drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch};
+use embedded_graphics::{mono_font::{MonoTextStyle, ascii::FONT_6X10}, text::Text, pixelcolor::Rgb565, Drawable};
+use esp_idf_hal::{delay::FreeRtos, i2c::I2C0};
+use chrono::NaiveTime;
 
 #[derive(Debug)]
 pub enum AppState {
-    Home,
+    Launcher,
     Settings,
     Battery,
 }
 
 pub struct App<'a> {
     power: PowerManager<'a>,
-    display: MyDisplay<'a>,
-    touch: Touch<'a>,
+    display: TwatchDisplay<'a>,
+    touch: Touch<'a, I2C0>,
     state: AppState,
 }
 
 impl<'a> App<'a> {
-    pub fn new(power: PowerManager<'a>, display: MyDisplay<'a>, touch: Touch<'a>) -> Self {
+    pub fn new(power: PowerManager<'a>, display: TwatchDisplay<'a>, touch: Touch<'a, I2C0>) -> Self {
         Self {
             power,
             display,
             touch,
-            state: AppState::Home,
+            state: AppState::Launcher,
         }
     }
 
     pub fn run(&mut self, delay: &mut FreeRtos) -> Result<()> {
         loop {
+            self.draw_status_bar()?;
+
             match self.state {
-                AppState::Home => self.show_home(delay)?,
+                AppState::Launcher => self.show_launcher(delay)?,
                 AppState::Settings => self.show_settings(delay)?,
-                AppState::Battery => self.show_battery(delay)?,
+                AppState::Battery  => self.show_battery(delay)?,
             }
         }
     }
 
-    fn show_home(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear()?;
-        self.display.draw_text(10, 20, "Home Screen")?;
+    fn draw_status_bar(&mut self) -> Result<()> {
+        let now = NaiveTime::from_hms_opt(12, 34, 0).unwrap();
 
+        let battery = self.power.axp.get_battery_percentage().map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+        let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
+
+        Text::new(&format!("{:02}:{:02}", chrono::Timelike::hour(&now), chrono::Timelike::minute(&now)), embedded_graphics::geometry::Point::new(5, 5), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new(&format!("{}%", battery), embedded_graphics::geometry::Point::new(180, 5), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+
+        Ok(())
+    }
+
+    fn show_launcher(&mut self, delay: &mut FreeRtos) -> Result<()> {
+ self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK)?;
+        let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
+        Text::new("Launcher: tap for apps", embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display)?;
+        
         if let Some(event) = self.touch.read_event()? {
             if event.on_button1() {
                 self.state = AppState::Settings;
@@ -49,32 +68,36 @@ impl<'a> App<'a> {
             }
         }
 
-        delay.delay_ms(50);
+        FreeRtos::delay_ms(50);
         Ok(())
     }
 
     fn show_settings(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear()?;
-        self.display.draw_text(10, 20, "Settings")?;
+ self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK)?;
+        let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
+        Text::new("Settings", embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display)?;
+
         if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
-                self.state = AppState::Home;
+                self.state = AppState::Launcher;
             }
         }
-        delay.delay_ms(50);
+        FreeRtos::delay_ms(50);
         Ok(())
     }
 
     fn show_battery(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear()?;
+ self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK)?;
         let voltage = self.power.read_voltage()?;
-        self.display.draw_text(10, 20, &format!("Battery: {} mV", voltage))?;
+        let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
+        Text::new(&format!("Battery: {} mV", voltage), embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display);
+
         if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
-                self.state = AppState::Home;
+                self.state = AppState::Launcher;
             }
         }
-        delay.delay_ms(200);
+        FreeRtos::delay_ms(200);
         Ok(())
     }
 }
