@@ -1,5 +1,5 @@
 [package]
-name = "twatch2020v3_rs"
+name = "twatch2020v3-rs"
 version = "0.1.0"
 authors = ["Placeless <thinkoverheat@gmail.com>"]
 edition = "2024"
@@ -7,7 +7,7 @@ resolver = "2"
 rust-version = "1.88"
 
 [[bin]]
-name = "twatch2020v3_rs"
+name = "twatch2020v3-rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
@@ -31,6 +31,7 @@ embedded-graphics = "0.8"
 mipidsi = "0.9"
 axp20x = "0.0.3"
 pcf8563 = "0.1.2"
+mousefood = "0.2.1"
 # esp-idf-sys は明示的に必要（esp-idf-svc/hal に依存）
 
 [build-dependencies]
