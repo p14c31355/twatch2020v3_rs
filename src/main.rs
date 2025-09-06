@@ -1,38 +1,40 @@
+mod drivers;
+
 use anyhow::Result;
-use esp_idf_hal::i2c::{I2cConfig, I2cDriver};
-use esp_idf_hal::prelude::*;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::delay::FreeRtos;
 use std::thread;
 use std::time::Duration;
 
-use axp20x::{Axpxx, Power, PowerState};
-use esp_idf_hal::delay::FreeRtos;
+use drivers::{axp::PowerManager, display::init_display};
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
     let p = Peripherals::take().unwrap();
-
-    let i2c_cfg = I2cConfig::new().baudrate(50_000.Hz());
-    let mut i2c = I2cDriver::new(p.i2c0, p.pins.gpio21, p.pins.gpio22, &i2c_cfg)?;
-
-    let mut axp = Axpxx::new(&mut i2c);
-    axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
     let mut delay = FreeRtos;
 
-    axp.set_power_output(Power::Ldo2, PowerState::On, &mut delay)
-        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let i2c0 = p.i2c0;
+    let gpio21 = p.pins.gpio21;
+    let gpio22 = p.pins.gpio22;
+
+    let mut i2c = esp_idf_hal::i2c::I2cDriver::new(
+        i2c0,
+        gpio21,
+        gpio22,
+        &esp_idf_hal::i2c::I2cConfig::new().baudrate(esp_idf_hal::units::Hertz(400_000)),
+    )?;
+    let mut power = PowerManager::new(&mut i2c)?;
+
+    let mut buffer = [0_u8; 240 * 240 * 2]; // 240x240 pixels, 2 bytes per pixel (Rgb565)
+    let mut display = init_display(p, &mut buffer, &mut delay)?;
 
     loop {
-        // ON
-        axp.set_power_output(Power::Ldo2, PowerState::On, &mut delay)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        println!("backlight ON");
+        power.backlight_on(&mut delay)?;
+        println!("ON");
         thread::sleep(Duration::from_millis(500));
 
-        // OFF
-        axp.set_power_output(Power::Ldo2, PowerState::Off, &mut delay)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        println!("backlight OFF");
+        power.backlight_off(&mut delay)?;
+        println!("OFF");
         thread::sleep(Duration::from_millis(500));
     }
 }
