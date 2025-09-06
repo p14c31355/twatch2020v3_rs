@@ -12,11 +12,16 @@ use mipidsi::options::ColorOrder; // Add this import
 pub type TwatchDisplay<'a> = Display<SpiInterface<'a, SpiDeviceDriver<'a, &'a SpiDriver<'a>>, PinDriver<'a, Gpio27, Output>>, ST7789, PinDriver<'a, Gpio33, Output>>;
 
 pub fn init_display<'a>(p: Peripherals, buffer: &'a mut [u8]) -> Result<TwatchDisplay<'a>> {
+    let sclk_pin = p.pins.gpio18.into().into_output().into_any_io_pin();
+    let mosi_pin = p.pins.gpio23.into().into_output().into_any_io_pin();
+    let miso_pin_driver: PinDriver<'_, Gpio19, esp_idf_hal::gpio::Input> = PinDriver::input(p.pins.gpio19)
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
     let driver = SpiDriver::new(
         p.spi2,
-        p.pins.gpio18.into().into_output().into_any_io_pin(),  // SCLK
-        p.pins.gpio23.into().into_output().into_any_io_pin(),  // MOSI (sdo)
-        Some(p.pins.gpio19.into().into_input().into_any_io_pin()), // MISO (sdi)
+        sclk_pin,  // SCLK
+        mosi_pin,  // MOSI (sdo)
+        Some(miso_pin_driver.into_any_io_pin()), // MISO (sdi)
         &SpiDriverConfig::new(),
     )?;
 
