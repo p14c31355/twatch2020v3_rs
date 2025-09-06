@@ -1,7 +1,6 @@
 use anyhow::Result;
 use esp_idf_hal::spi::{config::DriverConfig as SpiDriverConfig, config::Config as SpiConfig, SpiDeviceDriver, SpiDriver};
 use esp_idf_hal::gpio::{AnyIOPin, Output, PinDriver, Gpio27, Gpio33};
-use esp_idf_hal::peripherals::Peripherals;
 use mipidsi::{Builder, models::ST7789, Display};
 use mipidsi::interface::SpiInterface;
 use esp_idf_hal::delay::FreeRtos;
