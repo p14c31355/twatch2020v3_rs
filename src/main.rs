@@ -26,20 +26,18 @@ fn main() -> Result<()> {
         &i2c_cfg,
     )?;
 
-    let i2c_manager = I2cManager::new(i2c_hal_driver);
+    let mut i2c_manager = I2cManager::new(i2c_hal_driver);
 
-    let mut display_buffer = Box::leak(Box::new([0_u8; 240 * 240 * 2]));
-    let display = TwatchDisplay::new(
+    let mut display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
         peripherals.pins.gpio23,
         peripherals.pins.gpio5,
         peripherals.pins.gpio27,
         peripherals.pins.gpio33,
-        display_buffer.as_mut(),
     )?;
 
-    let mut app = App::new(&i2c_manager, display);
+    let mut app = App::new(&mut i2c_manager, &mut display);
 
     app.run(&mut delay)?;
     Ok(())

@@ -7,6 +7,9 @@ use esp_idf_hal::{
     units::FromValueType,
 };
 use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
+use embedded_graphics::{geometry::Size, prelude::RgbColor};
+use embedded_graphics::pixelcolor::Rgb565;
+use display_interface_spi::SPIInterfaceNoCS;
 
 pub struct TwatchDisplay<'a> {
     pub display: Display<
@@ -24,7 +27,6 @@ impl<'a> TwatchDisplay<'a> {
         gpio5: esp_idf_hal::gpio::Gpio5,
         gpio27: Gpio27,
         gpio33: Gpio33,
-        buffer: &'a mut [u8],
     ) -> Result<Self> {
         let driver = SpiDriver::new(
             spi2,
@@ -43,13 +45,13 @@ impl<'a> TwatchDisplay<'a> {
         let dc: PinDriver<Gpio27, Output> = PinDriver::output(gpio27)?;
         let rst: PinDriver<Gpio33, Output> = PinDriver::output(gpio33)?;
 
-        let spi = SpiInterface::new(spi_device, dc);
+        let spi = SPIInterfaceNoCS::new(spi_device, dc);
 
         let display = Builder::new(ST7789, spi)
-            .with_pixel_buffer(buffer)
-            .color_order(ColorOrder::Rgb)
-            .reset_pin(rst)
-            .init(&mut FreeRtos)
+            .with_display_size(240, 240)
+            .with_color_order(ColorOrder::Rgb)
+            .with_reset_pin(rst)
+            .init(&mut FreeRtos, Rgb565::BLACK)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         Ok(Self {

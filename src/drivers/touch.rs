@@ -4,7 +4,7 @@ use ft6x36::{Ft6x36, RawTouchEvent, Dimension, TouchType};
 use crate::manager::I2cManager;
 
 pub struct Touch<'a> {
-    driver: Ft6x36<&'a I2cManager>,
+    driver: Ft6x36<&'a mut I2cManager>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -21,7 +21,7 @@ pub struct TouchPoint {
 }
 
 impl<'a> Touch<'a> {
-    pub fn new(i2c: &'a I2cManager) -> Result<Self> {
+    pub fn new(i2c: &'a mut I2cManager) -> Result<Self> {
         let driver = Ft6x36::new(i2c, Dimension(240, 240));
         Ok(Self { driver })
     }
@@ -29,7 +29,7 @@ impl<'a> Touch<'a> {
 
 impl<'a> Touch<'a>
 {
-    pub fn read_event(&mut self) -> Result<Option<TouchPoint>> {
+    pub fn read_event(&mut self) -> Result<Option<TouchPoint>, anyhow::Error> {
         let raw_event: RawTouchEvent = self.driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         if let Some(ft6x36_touch_point) = raw_event.p1 {

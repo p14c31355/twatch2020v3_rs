@@ -19,41 +19,38 @@ pub enum AppState {
 }
 
 pub struct App<'a> {
-    power: PowerManager<'a>,
-    display: TwatchDisplay<'a>,
-    touch: Touch<'a>,
+    i2c: &'a mut I2cManager,
+    display: &'a mut TwatchDisplay<'a>,
     state: AppState,
 }
 
 
 impl<'a> App<'a> {
-    pub fn new(i2c: &'a I2cManager, display: TwatchDisplay<'a>) -> Self {
-        let power = PowerManager::new(i2c).unwrap();
-        let touch = Touch::new(i2c).unwrap();
-
+    pub fn new(i2c: &'a mut I2cManager, display: &'a mut TwatchDisplay<'a>) -> Self {
         Self {
-            power,
+            i2c,
             display,
-            touch,
             state: AppState::Launcher,
         }
     }
 
     pub fn run(&mut self, _delay: &mut FreeRtos) -> Result<()> {
-        loop {
-            self.draw_status_bar()?;
+        let mut power = PowerManager::new(self.i2c)?;
+        let mut touch = Touch::new(self.i2c)?;
 
+        loop {
+            self.draw_status_bar(&mut power)?;
             match self.state {
-                AppState::Launcher => self.show_launcher()?,
-                AppState::Settings => self.show_settings()?,
-                AppState::Battery  => self.show_battery()?,
+                AppState::Launcher => self.show_launcher(&mut touch)?,
+                AppState::Settings => self.show_settings(&mut touch)?,
+                AppState::Battery  => self.show_battery(&mut power, &mut touch)?,
             }
         }
     }
 
-    fn draw_status_bar(&mut self) -> Result<()> {
+    fn draw_status_bar(&mut self, power: &mut PowerManager) -> Result<()> {
         let now = NaiveTime::from_hms_opt(12, 34, 0).unwrap();
-        let battery = self.power.axp.get_battery_percentage()
+        let battery = power.axp.get_battery_percentage()
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
@@ -69,7 +66,7 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn show_launcher(&mut self) -> Result<()> {
+    fn show_launcher(&mut self, touch: &mut Touch) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
@@ -77,7 +74,7 @@ impl<'a> App<'a> {
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = touch.read_event()? {
             if event.on_button1() {
                 self.state = AppState::Settings;
             } else if event.on_button2() {
@@ -88,7 +85,7 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn show_settings(&mut self) -> Result<()> {
+    fn show_settings(&mut self, touch: &mut Touch) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
@@ -96,7 +93,7 @@ impl<'a> App<'a> {
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = touch.read_event()? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -105,16 +102,16 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn show_battery(&mut self) -> Result<()> {
+    fn show_battery(&mut self, power: &mut PowerManager, touch: &mut Touch) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        let voltage = self.power.read_voltage()?;
+        let voltage = power.read_voltage()?;
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
         Text::new(&format!("Battery: {} mV", voltage), Point::new(10, 40), text_style)
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = touch.read_event()? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
