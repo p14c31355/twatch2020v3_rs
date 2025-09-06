@@ -21,14 +21,14 @@ pub enum AppState {
 pub struct App<'a> {
     i2c: I2cManager,
     display: TwatchDisplay<'a>,
-    power: PowerManager<'a>,
-    touch: Touch<'a>,
+    power: PowerManager,
+    touch: Touch,
     state: AppState,
 }
 
 
 impl<'a> App<'a> {
-    pub fn new(i2c: I2cManager, display: TwatchDisplay<'a>, power: PowerManager<'a>, touch: Touch<'a>) -> Self {
+    pub fn new(i2c: I2cManager, display: TwatchDisplay<'a>, power: PowerManager, touch: Touch) -> Self {
         Self {
             i2c,
             display,
@@ -51,7 +51,7 @@ impl<'a> App<'a> {
 
     fn draw_status_bar(&mut self) -> Result<()> {
         let now = NaiveTime::from_hms_opt(12, 34, 0).unwrap();
-        let battery = self.power.axp.get_battery_percentage()
+        let battery = self.power.get_battery_percentage(&mut self.i2c)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
@@ -75,7 +75,7 @@ impl<'a> App<'a> {
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_button1() {
                 self.state = AppState::Settings;
             } else if event.on_button2() {
@@ -94,7 +94,7 @@ impl<'a> App<'a> {
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -105,14 +105,14 @@ impl<'a> App<'a> {
 
     fn show_battery(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        let voltage = self.power.read_voltage()?;
+        let voltage = self.power.read_voltage(&mut self.i2c)?;
         let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
         Text::new(&format!("Battery: {} mV", voltage), Point::new(10, 40), text_style)
             .draw(&mut self.display.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(event) = self.touch.read_event()? {
+        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }

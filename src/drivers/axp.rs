@@ -4,26 +4,21 @@ use axp20x::{Axpxx, Power, PowerState};
 use crate::manager::I2cManager;
 use esp_idf_hal::delay::FreeRtos;
 
-pub struct PowerManager<'a> {
-    pub axp: Axpxx<&'a mut I2cManager>,
-}
+pub struct PowerManager;
 
-impl<'a> PowerManager<'a> {
-    pub fn new(i2c: &'a mut I2cManager) -> Result<Self> {
+impl PowerManager {
+    pub fn new() -> Result<Self> {
+        Ok(Self)
+    }
+
+    pub fn get_battery_percentage(&mut self, i2c: &mut I2cManager) -> Result<u8> {
         let mut axp = Axpxx::new(i2c);
-        axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        axp.set_power_output(Power::Ldo2, PowerState::On, &mut FreeRtos)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        Ok(Self { axp })
+        let percentage = axp.get_battery_percentage().map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Ok(percentage as u8)
     }
 
-    pub fn read_voltage(&mut self) -> Result<u16> {
-        self.axp.get_battery_voltage().map(|v| v as u16).map_err(|e| anyhow::anyhow!("{:?}", e))
-    }
-}
-
-impl<'a> Drop for PowerManager<'a> {
-    fn drop(&mut self) {
-        let _ = self.axp.set_power_output(Power::Ldo2, PowerState::Off, &mut FreeRtos);
+    pub fn read_voltage(&mut self, i2c: &mut I2cManager) -> Result<u16> {
+        let mut axp = Axpxx::new(i2c);
+        axp.get_battery_voltage().map(|v| v as u16).map_err(|e| anyhow::anyhow!("{:?}", e))
     }
 }

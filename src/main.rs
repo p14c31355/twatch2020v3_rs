@@ -28,10 +28,8 @@ fn main() -> Result<()> {
         &i2c_cfg,
     )?;
 
-    let mut i2c_manager = I2cManager::new(i2c_hal_driver);
+    let i2c_manager = I2cManager::new(i2c_hal_driver);
 
-    // The display_buffer needs to live for the entire duration the display is used.
-    // Moving it out of the block ensures it lives long enough.
     let mut display_buffer = [0_u8; 240 * 240 * 2];
     let display = TwatchDisplay::new(
         peripherals.spi2,
@@ -43,8 +41,8 @@ fn main() -> Result<()> {
         display_buffer.as_mut(),
     )?;
 
-    let power = PowerManager::new(&mut i2c_manager)?;
-    let touch = Touch::new(&mut i2c_manager)?;
+    let power = PowerManager::new()?;
+    let touch = Touch::new()?;
 
     let mut app = App::new(i2c_manager, display, power, touch);
 
