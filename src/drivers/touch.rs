@@ -1,7 +1,4 @@
 // src/drivers/touch.rs
-use anyhow::Result;
-use ft6x36::{Ft6x36, TouchEvent, RawTouchEvent, Dimension};
-
 pub struct Touch<'a, I2C>
 where
     I2C: embedded_hal::i2c::I2c,
@@ -16,23 +13,10 @@ pub struct TouchPoint {
     pub event: TouchEvent,
 }
 
-impl<'a, I2C, E> Touch<'a, I2C>
-where
-    I2C: embedded_hal::i2c::I2c<Error = E>,
-    E: core::fmt::Debug,
+impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver>
 {
-    pub fn new(i2c: I2C) -> Result<Self> {
-        let driver = Ft6x36::new(i2c, Dimension(240, 240));
-        Ok(Self {
-            driver,
-            _phantom: core::marker::PhantomData,
-        })
-    }
-}
-
-impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>
-{
-    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver<'a>) -> Result<Self> {
+    // 引数の可変参照に寿命を適用
+    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver) -> Result<Self> {
         let driver = Ft6x36::new(i2c_ref, Dimension(240, 240));
         Ok(Self {
             driver,
@@ -43,15 +27,15 @@ impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>
     pub fn read_event(&mut self) -> Result<Option<TouchPoint>> {
         let raw_event: RawTouchEvent = self.driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(ft6x36_touch_point) = raw_event.p1 {
-            Ok(Some(TouchPoint {
+        if let Some(ft6x36_touch_point) = raw_event.into() {
+            return Ok(Some(TouchPoint {
                 x: ft6x36_touch_point.x,
                 y: ft6x36_touch_point.y,
-                event: TouchEvent::TouchOnePoint(ft6x36_touch_point),
-            }))
-        } else {
-            Ok(None)
+                event: ft6x36_touch_point.event,
+            }));
         }
+
+        Ok(None)
     }
 }
 
