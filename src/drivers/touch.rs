@@ -1,4 +1,7 @@
 // src/drivers/touch.rs
+use anyhow::Result;
+use ft6x36::{Ft6x36, TouchEvent, RawTouchEvent, Dimension}; 
+
 pub struct Touch<'a, I2C>
 where
     I2C: embedded_hal::i2c::I2c,
@@ -13,10 +16,9 @@ pub struct TouchPoint {
     pub event: TouchEvent,
 }
 
-impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver>
+impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>
 {
-    // 引数の可変参照に寿命を適用
-    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver) -> Result<Self> {
+    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver<'a>) -> Result<Self> {
         let driver = Ft6x36::new(i2c_ref, Dimension(240, 240));
         Ok(Self {
             driver,

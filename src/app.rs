@@ -14,17 +14,14 @@ pub enum AppState {
     Battery,
 }
 
-// App構造体に寿命パラメータを再追加
 pub struct App<'a> {
-    i2c: I2cDriver,
+    i2c: I2cDriver<'a>,
     display: TwatchDisplay<'a>,
     state: AppState,
 }
 
-// implブロックも寿命パラメータを持つように修正
 impl<'a> App<'a> {
-    // new関数の引数からI2cDriverの寿命パラメータを削除
-    pub fn new(i2c: I2cDriver, display: TwatchDisplay<'a>) -> Self {
+    pub fn new(i2c: I2cDriver<'a>, display: TwatchDisplay<'a>) -> Self {
         Self {
             i2c,
             display,
