@@ -16,13 +16,13 @@ pub enum AppState {
 
 pub struct App<'a> {
     power_manager: PowerManager<'a>,
-    touch: Touch<'a>,
+    touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
     display: TwatchDisplay<'a>,
     state: AppState,
 }
 
 impl<'a> App<'a> {
-    pub fn new(power_manager: PowerManager<'a>, touch: Touch<'a>, display: TwatchDisplay<'a>) -> Self {
+    pub fn new(power_manager: PowerManager<'a>, touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>, display: TwatchDisplay<'a>) -> Self {
         Self { power_manager, touch, display, state: AppState::Launcher }
     }
 
@@ -50,7 +50,7 @@ impl<'a> App<'a> {
     }
 
     fn show_launcher(&mut self) -> Result<()> {
-            let mut touch = &mut self.touch;
+            let touch = &mut self.touch;
             if let Some(event) = touch.read_event()? {
                 if event.on_button1() { self.state = AppState::Settings; }
                 else if event.on_button2() { self.state = AppState::Battery; }
@@ -64,7 +64,7 @@ impl<'a> App<'a> {
     }
 
     fn show_settings(&mut self) -> Result<()> {
-            let mut touch = &mut self.touch;
+            let touch = &mut self.touch;
             if let Some(event) = touch.read_event()? { // Pass a mutable reference
                 if event.on_back() { self.state = AppState::Launcher; }
             }
@@ -83,7 +83,7 @@ impl<'a> App<'a> {
             Text::new(&format!("Battery: {:.2} V", voltage / 1000.0), Point::new(10, 40), text_style)
                 .draw(&mut self.display.display);
 
-        let mut touch = &mut self.touch;
+        let touch = &mut self.touch;
         if let Some(event) = touch.read_event()? { // Pass a mutable reference
             if event.on_back() { self.state = AppState::Launcher; }
         }

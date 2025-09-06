@@ -7,6 +7,8 @@ use esp_idf_hal::prelude::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::i2c::{I2cConfig, I2cDriver};
+use drivers::axp::PowerManager;
+use drivers::touch::Touch;
 use drivers::display::TwatchDisplay;
 use app::App;
 
@@ -38,7 +40,9 @@ fn main() -> Result<()> {
         &mut display_buffer[..],
     )?;
 
-    let mut app = App::new(i2c_driver, display);
+    let power_manager = PowerManager::new(i2c_driver)?; // PowerManager takes ownership of the first mutable reference
+    let touch = Touch::new_with_ref(i2c_driver)?; // Touch takes ownership of the second mutable reference
+    let mut app = App::new(power_manager, touch, display);
     app.run(&mut delay)?;
     Ok(())
 }
