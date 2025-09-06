@@ -2,12 +2,10 @@
 use anyhow::Result;
 use ft6x36::{Ft6x36, RawTouchEvent, Dimension, TouchType};
 
-pub struct Touch<'a, I2C>
-where
-    I2C: embedded_hal::i2c::I2c,
-{
-    driver: Ft6x36<I2C>,
-    _phantom: core::marker::PhantomData<&'a ()>,
+use crate::manager::I2cManager;
+
+pub struct Touch {
+    driver: Ft6x36<I2cManager>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -23,30 +21,15 @@ pub struct TouchPoint {
     pub event: TouchEvent,
 }
 
-impl<'a, I2C, E> Touch<'a, I2C>
-where
-    I2C: embedded_hal::i2c::I2c<Error = E>,
-    E: core::fmt::Debug,
-{
-    pub fn new(i2c: I2C) -> Result<Self> {
+impl Touch {
+    pub fn new(i2c: I2cManager) -> Result<Self> {
         let driver = Ft6x36::new(i2c, Dimension(240, 240));
-        Ok(Self {
-            driver,
-            _phantom: core::marker::PhantomData,
-        })
+        Ok(Self { driver }) // No change needed here, this is for I2cManager
     }
 }
 
-impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>
+impl Touch
 {
-    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver<'a>) -> Result<Self> {
-        let driver = Ft6x36::new(i2c_ref, Dimension(240, 240));
-        Ok(Self {
-            driver,
-            _phantom: core::marker::PhantomData,
-        })
-    }
-
     pub fn read_event(&mut self) -> Result<Option<TouchPoint>> {
         let raw_event: RawTouchEvent = self.driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;
 

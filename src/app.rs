@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crate::drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch};
+use crate::{drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch}, manager::I2cManager};
 use embedded_graphics::{
     mono_font::{MonoTextStyle, ascii::FONT_6X10},
     text::Text,
@@ -9,7 +9,6 @@ use embedded_graphics::{
 };
 use esp_idf_hal::delay::FreeRtos;
 use chrono::{NaiveTime, Timelike};
-use embedded_hal::i2c::I2c;
 
 #[derive(Debug)]
 pub enum AppState {
@@ -18,27 +17,26 @@ pub enum AppState {
     Battery,
 }
 
-pub struct App<'a> {
-    power: PowerManager<'a>,
-    display: TwatchDisplay<'a>,
-    touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
+pub struct App {
+    power: PowerManager,
+    display: TwatchDisplay<'static>,
+    touch: Touch,
     state: AppState,
-    i2c: esp_idf_hal::i2c::I2cDriver<'a>,
+    i2c: I2cManager,
 }
 
-impl<'a> App<'a> {
-    pub fn new_with_i2c(i2c: esp_idf_hal::i2c::I2cDriver<'a>, display: TwatchDisplay<'a>) -> Self {
-        // ここは unsafe なしでOK
-        let mut i2c_ref = i2c;
-        let power = PowerManager::new(&mut i2c_ref).unwrap();
-        let touch = Touch::new_with_ref(&mut i2c_ref).unwrap();
+
+impl<'a> App {
+    pub fn new(i2c: I2cManager, display: TwatchDisplay<'static>) -> Self {
+        let power = PowerManager::new(i2c.clone()).unwrap();
+        let touch = Touch::new(i2c.clone()).unwrap();
 
         Self {
             power,
             display,
             touch,
             state: AppState::Launcher,
-            i2c: i2c_ref,
+            i2c,
         }
     }
 

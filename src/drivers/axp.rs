@@ -1,15 +1,15 @@
 // src/drivers/axp.rs
 use anyhow::Result;
-use esp_idf_hal::i2c::I2cDriver;
 use esp_idf_hal::delay::FreeRtos;
 use axp20x::{Axpxx, Power, PowerState};
+use crate::manager::I2cManager;
 
-pub struct PowerManager<'a> {
-    pub axp: Axpxx<&'a mut I2cDriver<'a>>,
+pub struct PowerManager {
+    pub axp: Axpxx<I2cManager>,
 }
 
-impl<'a> PowerManager<'a> {
-    pub fn new(i2c: &'a mut I2cDriver<'a>) -> Result<Self> {
+impl<'a> PowerManager {
+    pub fn new(i2c: I2cManager) -> Result<Self> {
         let mut axp = Axpxx::new(i2c);
         axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(Self { axp })

@@ -14,6 +14,7 @@ pub struct TwatchDisplay<'a> {
         ST7789,
         PinDriver<'a, Gpio33, Output>,
     >,
+    pub buffer: &'a mut [u8],
 }
 
 impl<'a> TwatchDisplay<'a> {
@@ -53,6 +54,7 @@ impl<'a> TwatchDisplay<'a> {
 
         Ok(Self {
             display,
+            buffer,
         })
     }
 }

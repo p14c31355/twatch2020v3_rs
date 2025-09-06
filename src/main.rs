@@ -1,4 +1,5 @@
 mod app;
+mod manager;
 mod drivers;
 
 use anyhow::Result;
@@ -7,6 +8,7 @@ use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::i2c::I2cConfig;
 use esp_idf_hal::prelude::*;
 use drivers::display::TwatchDisplay;
+use manager::I2cManager;
 use app::App;
 
 fn main() -> Result<()> {
@@ -16,13 +18,17 @@ fn main() -> Result<()> {
     let mut delay = FreeRtos;
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
 
-    let i2c_driver = esp_idf_hal::i2c::I2cDriver::new(
+    let i2c_hal_driver = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio21,
         peripherals.pins.gpio22,
         &i2c_cfg,
     )?;
 
+    let i2c_manager = I2cManager::new(i2c_hal_driver);
+
+    // The display_buffer needs to live for the entire duration the display is used.
+    // Moving it out of the block ensures it lives long enough.
     let mut display_buffer = [0_u8; 240 * 240 * 2];
     let display = TwatchDisplay::new(
         peripherals.spi2,
@@ -31,10 +37,10 @@ fn main() -> Result<()> {
         peripherals.pins.gpio5,
         peripherals.pins.gpio27,
         peripherals.pins.gpio33,
-        &mut display_buffer,
+        display_buffer.as_mut(),
     )?;
 
-    let mut app = App::new_with_i2c(i2c_driver, display);
+    let mut app = App::new(i2c_manager, display);
 
     app.run(&mut delay)?;
     Ok(())
