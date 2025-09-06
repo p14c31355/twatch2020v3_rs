@@ -25,4 +25,8 @@ impl<'a> PowerManager<'a> {
             .set_power_output(Power::Ldo2, PowerState::Off, delay)
             .map_err(|e| anyhow::anyhow!("{:?}", e))
     }
+
+    pub fn read_voltage(&mut self) -> Result<f32> {
+        self.axp.get_battery_voltage().map_err(|e| anyhow::anyhow!("{:?}", e))
+    }
 }
