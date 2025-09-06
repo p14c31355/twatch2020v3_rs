@@ -1081,6 +1081,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "pcf8563"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "414eba21a7b88aabafda54dd64dfb4d35862d50ee76777c9a7b60cccf20437f6"
+dependencies = [
+ "embedded-hal 0.2.7",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1464,6 +1473,7 @@ dependencies = [
  "esp-idf-svc",
  "esp-idf-sys",
  "mipidsi",
+ "pcf8563",
 ]
 
 [[package]]
