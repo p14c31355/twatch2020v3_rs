@@ -4,6 +4,7 @@ use crate::drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch};
 use embedded_graphics::{mono_font::{MonoTextStyle, ascii::FONT_6X10}, text::Text, pixelcolor::Rgb565, Drawable, prelude::{Point, DrawTarget, RgbColor}};
 use esp_idf_hal::delay::FreeRtos;
 use chrono::{NaiveTime, Timelike};
+use embedded_hal::i2c::I2c;
 
 #[derive(Debug)]
 pub enum AppState {
@@ -12,27 +13,33 @@ pub enum AppState {
     Battery,
 }
 
-// Remove lifetime parameters from App struct
-pub struct App<'a> {
+// Add lifetime parameter to App struct and make the I2C driver generic
+pub struct App<'a, T: I2c> {
     power: PowerManager<'a>,
     display: TwatchDisplay<'a>,
-    touch: Touch<'a, pcf8563::Error>,
-    state: AppState,
+    touch: Touch<'a, T>,
+    state: AppState, // Add this line
 }
 
-impl App<'_> {
-    pub fn new<'a>(
-        power: PowerManager<'a>,
-        display: TwatchDisplay<'a>,
-        touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
-    ) -> Self {
+impl<'a, T: I2c> App<'a, T> {
+    pub fn new<I2C, E>(mut i2c: I2C, display: TwatchDisplay<'a>) -> Self
+    where
+        I2C: embedded_hal::i2c::I2c<Error = E>,
+        E: core::fmt::Debug,
+    {
+        // The `i2c` driver needs to be split for PowerManager and Touch
+        // as they both require mutable access. The `new_with_ref` method is not available for PowerManager.
+        let power = PowerManager::new(&mut i2c).unwrap();
+        let touch = Touch::new_with_ref(&mut i2c).unwrap();
         Self {
             power,
-            display,
             touch,
-            state: AppState::Launcher,
+            display,
+            state: AppState::Launcher, // Initialize state here
         }
     }
+}
+impl<'a, T: I2c> App<'a, T> {
 
     pub fn run(&mut self, _delay: &mut FreeRtos) -> Result<()> {
         loop {
