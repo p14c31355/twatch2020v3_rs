@@ -1,11 +1,10 @@
 // src/drivers/touch.rs
 use anyhow::Result;
 use ft6x36::{Ft6x36, RawTouchEvent, Dimension, TouchType};
-
 use crate::manager::I2cManager;
 
-pub struct Touch {
-    driver: Ft6x36<I2cManager>,
+pub struct Touch<'a> {
+    driver: Ft6x36<&'a I2cManager>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -21,14 +20,14 @@ pub struct TouchPoint {
     pub event: TouchEvent,
 }
 
-impl Touch {
-    pub fn new(i2c: I2cManager) -> Result<Self> {
+impl<'a> Touch<'a> {
+    pub fn new(i2c: &'a I2cManager) -> Result<Self> {
         let driver = Ft6x36::new(i2c, Dimension(240, 240));
-        Ok(Self { driver }) // No change needed here, this is for I2cManager
+        Ok(Self { driver })
     }
 }
 
-impl Touch
+impl<'a> Touch<'a>
 {
     pub fn read_event(&mut self) -> Result<Option<TouchPoint>> {
         let raw_event: RawTouchEvent = self.driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;

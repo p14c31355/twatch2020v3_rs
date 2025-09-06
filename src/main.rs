@@ -1,3 +1,4 @@
+// main.rs
 mod app;
 mod manager;
 mod drivers;
@@ -27,9 +28,7 @@ fn main() -> Result<()> {
 
     let i2c_manager = I2cManager::new(i2c_hal_driver);
 
-    // The display_buffer needs to live for the entire duration the display is used.
-    // Moving it out of the block ensures it lives long enough.
-    let mut display_buffer = [0_u8; 240 * 240 * 2];
+    let mut display_buffer = Box::leak(Box::new([0_u8; 240 * 240 * 2]));
     let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
@@ -40,7 +39,7 @@ fn main() -> Result<()> {
         display_buffer.as_mut(),
     )?;
 
-    let mut app = App::new(i2c_manager, display);
+    let mut app = App::new(&i2c_manager, display);
 
     app.run(&mut delay)?;
     Ok(())

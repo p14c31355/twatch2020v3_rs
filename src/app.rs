@@ -1,3 +1,4 @@
+// src/app.rs
 use anyhow::Result;
 use crate::{drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch}, manager::I2cManager};
 use embedded_graphics::{
@@ -17,26 +18,24 @@ pub enum AppState {
     Battery,
 }
 
-pub struct App {
-    power: PowerManager,
-    display: TwatchDisplay<'static>,
-    touch: Touch,
+pub struct App<'a> {
+    power: PowerManager<'a>,
+    display: TwatchDisplay<'a>,
+    touch: Touch<'a>,
     state: AppState,
-    i2c: I2cManager,
 }
 
 
-impl<'a> App {
-    pub fn new(i2c: I2cManager, display: TwatchDisplay<'static>) -> Self {
-        let power = PowerManager::new(i2c.clone()).unwrap();
-        let touch = Touch::new(i2c.clone()).unwrap();
+impl<'a> App<'a> {
+    pub fn new(i2c: &'a I2cManager, display: TwatchDisplay<'a>) -> Self {
+        let power = PowerManager::new(i2c).unwrap();
+        let touch = Touch::new(i2c).unwrap();
 
         Self {
             power,
             display,
             touch,
             state: AppState::Launcher,
-            i2c,
         }
     }
 

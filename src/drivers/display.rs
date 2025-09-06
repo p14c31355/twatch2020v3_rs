@@ -4,7 +4,7 @@ use esp_idf_hal::{
     delay::FreeRtos,
     gpio::{Gpio27, Gpio33, Output, PinDriver, AnyIOPin},
     spi::{SPI2, SpiDriver, SpiDeviceDriver, config::{Config as SpiConfig, DriverConfig as SpiDriverConfig}},
-    units::FromValueType, // Add this line
+    units::FromValueType,
 };
 use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
 
@@ -14,7 +14,6 @@ pub struct TwatchDisplay<'a> {
         ST7789,
         PinDriver<'a, Gpio33, Output>,
     >,
-    pub buffer: &'a mut [u8],
 }
 
 impl<'a> TwatchDisplay<'a> {
@@ -44,9 +43,10 @@ impl<'a> TwatchDisplay<'a> {
         let dc: PinDriver<Gpio27, Output> = PinDriver::output(gpio27)?;
         let rst: PinDriver<Gpio33, Output> = PinDriver::output(gpio33)?;
 
-        let spi = SpiInterface::new(spi_device, dc, buffer);
+        let spi = SpiInterface::new(spi_device, dc);
 
         let display = Builder::new(ST7789, spi)
+            .with_pixel_buffer(buffer)
             .color_order(ColorOrder::Rgb)
             .reset_pin(rst)
             .init(&mut FreeRtos)
@@ -54,7 +54,6 @@ impl<'a> TwatchDisplay<'a> {
 
         Ok(Self {
             display,
-            buffer,
         })
     }
 }
