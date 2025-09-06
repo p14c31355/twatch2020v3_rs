@@ -52,17 +52,17 @@ impl<'a> App<'a> {
 
         let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
 
-        Text::new(&format!("{:02}:{:02}", chrono::Timelike::hour(&now), chrono::Timelike::minute(&now)), Point::new(5, 5), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        Text::new(&format!("{}%", battery), embedded_graphics::geometry::Point::new(180, 5), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new(&format!("{:02}:{:02}", chrono::Timelike::hour(&now), chrono::Timelike::minute(&now)), Point::new(5, 5), text_style).draw(&mut self.display.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new(&format!("{}%", battery), embedded_graphics::geometry::Point::new(180, 5), text_style).draw(&mut self.display.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
 
         Ok(())
     }
 
     fn show_launcher(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        self.display.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
-        Text::new("Launcher: tap for apps", embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new("Launcher: tap for apps", embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         
         if let Some(event) = self.touch.read_event()? {
             if event.on_button1() {
@@ -77,9 +77,9 @@ impl<'a> App<'a> {
     }
 
     fn show_settings(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        self.display.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE);
-        Text::new("Settings", Point::new(10, 40), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new("Settings", Point::new(10, 40), text_style).draw(&mut self.display.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
@@ -91,10 +91,10 @@ impl<'a> App<'a> {
     }
 
     fn show_battery(&mut self, delay: &mut FreeRtos) -> Result<()> {
-        self.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        self.display.display.clear(<Rgb565 as embedded_graphics::prelude::RgbColor>::BLACK).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let voltage = self.power.read_voltage()?;
         let text_style = MonoTextStyle::new(&FONT_6X10, <Rgb565 as embedded_graphics::prelude::RgbColor>::WHITE); // This line was already present
-        Text::new(&format!("Battery: {} mV", voltage), embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Text::new(&format!("Battery: {} mV", voltage), embedded_graphics::geometry::Point::new(10, 40), text_style).draw(&mut self.display.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
