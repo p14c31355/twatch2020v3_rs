@@ -30,6 +30,9 @@ fn main() -> Result<()> {
 
     let mut i2c_manager = I2cManager::new(i2c_hal_driver);
 
+    // The display_buffer needs to live for the entire duration the display is used.
+    // Moving it out of the block ensures it lives long enough.
+    let mut display_buffer = [0_u8; 240 * 240 * 2];
     let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
@@ -37,6 +40,7 @@ fn main() -> Result<()> {
         peripherals.pins.gpio5,
         peripherals.pins.gpio27,
         peripherals.pins.gpio33,
+        display_buffer.as_mut(),
     )?;
 
     let power = PowerManager::new(&mut i2c_manager)?;

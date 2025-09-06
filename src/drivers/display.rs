@@ -7,19 +7,17 @@ use esp_idf_hal::{
     units::FromValueType,
 };
 use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
-use embedded_graphics::prelude::RgbColor;
-use embedded_graphics::pixelcolor::Rgb565;
-use display_interface_spi::SPIInterface;
+
 
 pub struct TwatchDisplay<'a> {
     pub display: Display<
-        SpiInterface<'a, SpiDeviceDriver<'static, SpiDriver<'static>>, PinDriver<'static, Gpio27, Output>>,
+        SpiInterface<'a, SpiDeviceDriver<'a, SpiDriver<'a>>, PinDriver<'a, Gpio27, Output>>,
         ST7789,
-        PinDriver<'static, Gpio33, Output>,
+        PinDriver<'a, Gpio33, Output>,
     >,
 }
 
-impl TwatchDisplay<'_> {
+impl<'a> TwatchDisplay<'a> {
     pub fn new(
         spi2: SPI2,
         gpio18: esp_idf_hal::gpio::Gpio18,
@@ -27,6 +25,7 @@ impl TwatchDisplay<'_> {
         gpio5: esp_idf_hal::gpio::Gpio5,
         gpio27: Gpio27,
         gpio33: Gpio33,
+        display_buffer: &'a mut [u8],
     ) -> Result<Self> {
         let driver = SpiDriver::new(
             spi2,
@@ -45,17 +44,16 @@ impl TwatchDisplay<'_> {
         let dc: PinDriver<Gpio27, Output> = PinDriver::output(gpio27)?;
         let rst: PinDriver<Gpio33, Output> = PinDriver::output(gpio33)?;
 
-        let spi = SPIInterface::new(spi_device, dc);
+        let spi = SpiInterface::new(spi_device, dc, display_buffer);
 
         let display = Builder::new(ST7789, spi)
             .display_size(240, 240)
-            .with_color_order(ColorOrder::Rgb)
-            .with_reset_pin(rst)
-            .init(&mut FreeRtos, Rgb565::BLACK)
+            .color_order(ColorOrder::Rgb)
+            .reset_pin(rst)
+            .display_offset(0, 0)
+            .init(&mut FreeRtos)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        Ok(Self {
-            display,
-        })
+        Ok(Self { display })
     }
 }
