@@ -18,7 +18,6 @@ fn main() -> Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut delay = FreeRtos;
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
 
     let i2c_hal_driver = esp_idf_hal::i2c::I2cDriver::new(
@@ -46,6 +45,6 @@ fn main() -> Result<()> {
 
     let mut app = App::new(i2c_manager, display, power, touch);
 
-    app.run(&mut delay)?;
+    app.run(&mut FreeRtos)?;
     Ok(())
 }

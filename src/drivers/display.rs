@@ -7,7 +7,11 @@ use esp_idf_hal::{
     units::FromValueType,
 };
 use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
-
+use embedded_graphics::{
+    prelude::*,
+    pixelcolor::Rgb565,
+    primitives::{Rectangle, PrimitiveStyle},
+};
 
 pub struct TwatchDisplay<'a> {
     pub display: Display<
@@ -55,5 +59,12 @@ impl<'a> TwatchDisplay<'a> {
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         Ok(Self { display })
+    }
+
+    pub fn draw_rectangle(&mut self, rect: Rectangle) -> Result<()> {
+        rect.into_styled(PrimitiveStyle::with_fill(Rgb565::WHITE))
+            .draw(&mut self.display)
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Ok(())
     }
 }
