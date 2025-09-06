@@ -2,7 +2,10 @@
 use anyhow::Result;
 use ft6x36::{Ft6x36, TouchEvent, RawTouchEvent, Dimension};
 
-pub struct Touch<'a, I2C> {
+pub struct Touch<'a, I2C>
+where
+    I2C: embedded_hal::i2c::I2c,
+{
     driver: Ft6x36<I2C>,
     _phantom: core::marker::PhantomData<&'a ()>,
 }
@@ -20,6 +23,17 @@ where
 {
     pub fn new(i2c: I2C) -> Result<Self> {
         let driver = Ft6x36::new(i2c, Dimension(240, 240));
+        Ok(Self {
+            driver,
+            _phantom: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<'a> Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>
+{
+    pub fn new_with_ref(i2c_ref: &'a mut esp_idf_hal::i2c::I2cDriver<'a>) -> Result<Self> {
+        let driver = Ft6x36::new(i2c_ref, Dimension(240, 240));
         Ok(Self {
             driver,
             _phantom: core::marker::PhantomData,

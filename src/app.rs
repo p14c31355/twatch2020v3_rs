@@ -2,7 +2,7 @@
 use anyhow::Result;
 use crate::drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch};
 use embedded_graphics::{mono_font::{MonoTextStyle, ascii::FONT_6X10}, text::Text, pixelcolor::Rgb565, Drawable, prelude::{Point, DrawTarget}};
-use esp_idf_hal::{delay::FreeRtos, i2c::{I2C0, I2cError}};
+use esp_idf_hal::delay::FreeRtos;
 use chrono::NaiveTime;
 
 #[derive(Debug)]
@@ -12,23 +12,19 @@ pub enum AppState {
     Battery,
 }
 
-pub struct App<'a, I2C, E>
-where
-    I2C: embedded_hal::i2c::I2c<Error = E>,
-    E: core::fmt::Debug,
-{
+pub struct App<'a> {
     power: PowerManager<'a>,
     display: TwatchDisplay<'a>,
-    touch: Touch<'a, I2C>,
+    touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
     state: AppState,
 }
 
-impl<'a, I2C, E> App<'a, I2C, E>
-where
-    I2C: embedded_hal::i2c::I2c<Error = E>,
-    E: core::fmt::Debug,
-{
-    pub fn new(power: PowerManager<'a>, display: TwatchDisplay<'a>, touch: Touch<'a, I2C>) -> Self {
+impl<'a> App<'a> {
+    pub fn new(
+        power: PowerManager<'a>,
+        display: TwatchDisplay<'a>,
+        touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
+    ) -> Self {
         Self {
             power,
             display,

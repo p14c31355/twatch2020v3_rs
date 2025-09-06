@@ -4,11 +4,11 @@ use esp_idf_hal::delay::FreeRtos;
 use axp20x::{Axpxx, Power, PowerState};
 
 pub struct PowerManager<'a> {
-    pub axp: Axpxx<I2cDriver<'a>>,
+    pub axp: Axpxx<&'a mut I2cDriver<'a>>,
 }
 
 impl<'a> PowerManager<'a> {
-    pub fn new(i2c: I2cDriver<'a>) -> Result<Self> {
+    pub fn new(i2c: &'a mut I2cDriver<'a>) -> Result<Self> {
         let mut axp = Axpxx::new(i2c);
         axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(Self { axp })
