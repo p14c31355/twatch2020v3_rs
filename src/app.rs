@@ -17,6 +17,7 @@ pub struct App<'a> {
     display: TwatchDisplay<'a>,
     touch: Touch<'a, &'a mut esp_idf_hal::i2c::I2cDriver<'a>>,
     state: AppState,
+    _i2c: esp_idf_hal::i2c::I2cDriver<'a>,
 }
 
 impl<'a> App<'a> {
@@ -30,6 +31,18 @@ impl<'a> App<'a> {
             display,
             touch,
             state: AppState::Launcher,
+        }
+    }
+
+    pub fn new_with_i2c(mut i2c: esp_idf_hal::i2c::I2cDriver<'a>, display: TwatchDisplay<'a>) -> Self {
+        let power = PowerManager::new(&mut i2c).unwrap();
+        let touch = Touch::new_with_ref(&mut i2c).unwrap();
+        Self {
+            power,
+            touch,
+            display,
+            state: AppState::Launcher,
+            _i2c: i2c, // i2c の所有権を移動
         }
     }
 
