@@ -17,16 +17,25 @@ fn main() -> Result<()> {
     let gpio21 = p.pins.gpio21;
     let gpio22 = p.pins.gpio22;
 
-    let mut i2c = esp_idf_hal::i2c::I2cDriver::new(
+    let i2c = esp_idf_hal::i2c::I2cDriver::new(
         i2c0,
         gpio21,
         gpio22,
         &esp_idf_hal::i2c::I2cConfig::new().baudrate(esp_idf_hal::units::Hertz(400_000)),
     )?;
-    let mut power = PowerManager::new(&mut i2c)?;
+    let mut power = PowerManager::new(i2c)?;
+
+    let spi2 = p.spi2;
+    let gpio18 = p.pins.gpio18;
+    let gpio23 = p.pins.gpio23;
+    let gpio5 = p.pins.gpio5;
+    let gpio27 = p.pins.gpio27;
+    let gpio33 = p.pins.gpio33;
 
     let mut buffer = [0_u8; 240 * 240 * 2]; // 240x240 pixels, 2 bytes per pixel (Rgb565)
-    let mut display = init_display(p, &mut buffer, &mut delay)?;
+    let _display = init_display(
+        spi2, gpio18, gpio23, gpio5, gpio27, gpio33, &mut buffer
+    )?;
 
     loop {
         power.backlight_on(&mut delay)?;
