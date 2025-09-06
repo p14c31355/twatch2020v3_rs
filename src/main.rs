@@ -26,27 +26,24 @@ fn main() -> Result<()> {
         &i2c_cfg,
     )?;
 
-    // The I2cDriver needs to be split to be used by both PowerManager and Touch
     let mut power = PowerManager::new(&mut i2c_driver)?;
 
     let touch = Touch::new_with_ref(&mut i2c_driver)?;
 
-    let mut buffer = [0_u8; 240 * 240 * 2]; // 240x240, Rgb565
-    let display_spi = init_display(
+    let mut display_buffer = [0_u8; 240 * 240 * 2]; // 240x240, Rgb565
+
+    let display = init_display( 
         peripherals.spi2,
         peripherals.pins.gpio18,
         peripherals.pins.gpio23,
         peripherals.pins.gpio5,
         peripherals.pins.gpio27,
         peripherals.pins.gpio33,
-        &mut buffer
+        &mut display_buffer
     )?;
-
-    let display = display_spi;
 
     let mut app = App::new(power, display, touch);
 
-    // -------- メインループ --------
     app.run(&mut delay)?;
 
     Ok(())
