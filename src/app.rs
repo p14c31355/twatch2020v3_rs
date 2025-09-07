@@ -40,8 +40,8 @@ impl<'a> App<'a> {
         mut power: PowerManager,
         mut touch: Touch,
     ) -> Self {
-        power.init_power(&mut i2c)?;
-        power.set_backlight(&mut i2c, true)?;
+        power.init_power(&mut i2c);
+        power.set_backlight(&mut i2c, true);
         feed_watchdog();
 
         Self {
@@ -72,7 +72,7 @@ impl<'a> App<'a> {
     }
 
     fn show_launcher(&mut self) -> Result<()> {
-        self.display.display.clear(Rgb565::BLACK)?;
+        self.display.display.clear(Rgb565::BLACK);
         feed_watchdog();
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {

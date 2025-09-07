@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let touch = Touch::new()?;
     feed_watchdog_during(|| {}, 5, 10);
 
-    let mut app = App::new(i2c0_manager, display, power, touch);
+    let mut app = App::new(i2c0_manager, display, power?, touch);
 
     app.run()?;
     Ok(())
