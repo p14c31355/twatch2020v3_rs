@@ -15,12 +15,8 @@ use embedded_graphics::{
 use esp_idf_hal::delay::FreeRtos;
 
 pub fn feed_watchdog() {
-    unsafe {
-        let _ = esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
-        esp_idf_sys::esp_task_wdt_reset();
-    }
+    unsafe { esp_idf_sys::esp_task_wdt_reset() };
 }
-
 
 #[derive(Debug, Clone)]
 pub enum AppState {
