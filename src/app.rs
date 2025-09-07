@@ -90,13 +90,11 @@ impl<'a, 'b> App<'a, 'b> {
         self.display.display.clear(Rgb565::BLACK);
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
-            self.state = if event.on_button1() {
-                AppState::Settings
+                        if event.on_button1() {
+                self.state = AppState::Settings;
             } else if event.on_button2() {
-                AppState::Battery
-            } else {
-                self.state.clone()
-            };
+                self.state = AppState::Battery;
+            }
         }
         self.feed_and_delay(20)?;
         Ok(())
