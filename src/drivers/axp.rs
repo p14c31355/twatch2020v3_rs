@@ -11,7 +11,7 @@ impl PowerManager {
         Ok(Self)
     }
 
-    pub fn init_power(&mut self, i2c: &mut I2cManager) -> Result<()> {
+    pub fn init_power(&self, i2c: &mut I2cManager) -> Result<()> {
         let mut axp = Axpxx::new(i2c);
         axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(())
