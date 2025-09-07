@@ -42,7 +42,9 @@ fn main() -> Result<()> {
     let power = PowerManager::new()?;
     let touch = Touch::new()?;
 
-    let mut app = App::new(i2c_manager, display, power, touch);
+    let twdt = peripherals.twdt;
+
+    let mut app = App::new(i2c_manager, display, power, touch, twdt)?;
 
     app.init()?;
     app.run()?;

@@ -11,7 +11,7 @@ use embedded_graphics::{
     Drawable,
 };
 use esp_idf_hal::delay::FreeRtos;
-use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig, TWDTWatch};
+use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig};
 use esp_idf_hal::peripherals::Peripherals;
 use chrono::{Local, Timelike};
 use std::time::Duration;
@@ -29,7 +29,7 @@ pub struct App<'a> {
     power: PowerManager,
     touch: Touch,
     state: AppState,
-    watchdog: TWDTWatch,
+    twdt: TWDTDriver<'a>,
 }
 
 impl<'a> App<'a> {
@@ -38,7 +38,7 @@ impl<'a> App<'a> {
         display: TwatchDisplay<'a>,
         power: PowerManager,
         touch: Touch,
-        peripherals: &Peripherals,
+        twdt: esp_idf_hal::task::watchdog::TWDT,
     ) -> Result<Self> {
         // タスクウォッチドッグ設定
         let config = TWDTConfig {
@@ -46,8 +46,7 @@ impl<'a> App<'a> {
             panic_on_trigger: true,
             subscribed_idle_tasks: Default::default(),
         };
-        let driver = TWDTDriver::new(peripherals.twdt, &config)?;
-        let watchdog = driver.watch_current_task()?; // 現在のタスクを監視対象に
+        let driver = TWDTDriver::new(twdt, &config)?;
 
         Ok(Self {
             i2c,
@@ -55,7 +54,7 @@ impl<'a> App<'a> {
             power,
             touch,
             state: AppState::Launcher,
-            watchdog,
+            twdt: driver,
         })
     }
 
@@ -87,7 +86,7 @@ impl<'a> App<'a> {
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
         self.feed_watchdog()?;
-        draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40, &mut self.watchdog)?;
+        draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             self.state = if event.on_button1() {
@@ -105,7 +104,7 @@ impl<'a> App<'a> {
     fn show_settings(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
         self.feed_watchdog()?;
-        draw_text(&mut self.display.display, "Settings", 10, 40, &mut self.watchdog)?;
+        draw_text(&mut self.display.display, "Settings", 10, 40)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
@@ -126,7 +125,6 @@ impl<'a> App<'a> {
             &format!("Battery: {voltage} mV"),
             10,
             40,
-            &mut self.watchdog,
         )?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
@@ -145,16 +143,17 @@ impl<'a> App<'a> {
             &format!("{:02}:{:02}", now.hour(), now.minute()),
             10,
             10,
-            &mut self.watchdog,
         )?;
 
         let battery = self.power.get_battery_percentage(&mut self.i2c)?;
-        draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10, &mut self.watchdog)?;
+        draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10)?;
         Ok(())
     }
 
     fn feed_watchdog(&mut self) -> Result<()> {
-        self.watchdog.feed();
+        // 毎回現在タスクでwatchを作るので生ポインタ参照不要
+        let mut task_watch = self.twdt.watch_current_task()?;
+        task_watch.feed();
         Ok(())
     }
 
@@ -170,16 +169,14 @@ impl<'a> App<'a> {
     }
 }
 
-/// 共通テキスト描画 + WDT feed
+/// 共通テキスト描画
 fn draw_text<D: DrawTarget<Color = Rgb565>>(
     target: &mut D,
     content: &str,
     x: i32,
     y: i32,
-    watchdog: &mut TWDTWatch,
 ) -> Result<()> {
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
     Text::new(content, Point::new(x, y), style).draw(target);
-    watchdog.feed();
     Ok(())
 }
