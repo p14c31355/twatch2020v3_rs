@@ -12,7 +12,6 @@ use embedded_graphics::{
 };
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig};
-use esp_idf_hal::peripherals::Peripherals;
 use chrono::{Local, Timelike};
 use std::time::Duration;
 
@@ -40,14 +39,12 @@ impl<'a> App<'a> {
         touch: Touch,
         twdt: esp_idf_hal::task::watchdog::TWDT,
     ) -> Result<Self> {
-        // タスクウォッチドッグ設定
         let config = TWDTConfig {
-            duration: Duration::from_secs(30), // 30秒
+            duration: Duration::from_secs(30),
             panic_on_trigger: true,
             subscribed_idle_tasks: Default::default(),
         };
         let driver = TWDTDriver::new(twdt, &config)?;
-
         Ok(Self {
             i2c,
             display,
@@ -61,16 +58,15 @@ impl<'a> App<'a> {
     pub fn init(&mut self) -> Result<()> {
         self.power.init_power(&mut self.i2c)?;
         self.power.set_backlight(&mut self.i2c, true)?;
-        self.feed_watchdog()?;
         Ok(())
     }
 
     pub fn run(&mut self) -> Result<()> {
         loop {
-            self.feed_watchdog()?;
-            self.draw_status_bar()?;
-            self.handle_state()?;
-            self.feed_and_delay(20)?;
+            self.feed_watchdog()?;          // WDT feed
+            self.draw_status_bar()?;        // 状態バー描画
+            self.handle_state()?;           // UI状態遷移処理
+            self.feed_and_delay(20)?;       // 微小ディレイ + WDT feed
         }
     }
 
@@ -85,7 +81,6 @@ impl<'a> App<'a> {
 
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        self.feed_watchdog()?;
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
@@ -97,13 +92,11 @@ impl<'a> App<'a> {
                 self.state.clone()
             };
         }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_settings(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        self.feed_watchdog()?;
         draw_text(&mut self.display.display, "Settings", 10, 40)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
@@ -111,13 +104,11 @@ impl<'a> App<'a> {
                 self.state = AppState::Launcher;
             }
         }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_battery(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        self.feed_watchdog()?;
 
         let voltage = self.power.read_voltage(&mut self.i2c)?;
         draw_text(
@@ -132,7 +123,6 @@ impl<'a> App<'a> {
                 self.state = AppState::Launcher;
             }
         }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
@@ -150,8 +140,9 @@ impl<'a> App<'a> {
         Ok(())
     }
 
+    /// WDT feed
     fn feed_watchdog(&mut self) -> Result<()> {
-        // 毎回現在タスクでwatchを作るので生ポインタ参照不要
+        // task_subscriptionを一時作成して feed して即 drop
         let mut task_watch = self.twdt.watch_current_task()?;
         task_watch.feed();
         Ok(())
