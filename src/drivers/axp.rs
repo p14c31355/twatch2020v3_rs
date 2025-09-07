@@ -9,7 +9,7 @@ pub struct PowerManager {
 }
 
 impl PowerManager {
-    pub fn new(mut i2c: I2cManager) -> Result<Self> {
+    pub fn new(i2c: I2cManager) -> Result<Self> {
         let mut axp = Axpxx::new(i2c);
         axp.init().map_err(|e| anyhow::anyhow!("AXP init failed: {:?}", e))?;
         Ok(Self { axp })

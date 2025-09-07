@@ -13,26 +13,10 @@ use esp_idf_hal::i2c::I2cConfig;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use manager::I2cManager;
-use std::panic;
 
 fn init_watchdog() {
     unsafe {
         esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
-    }
-}
-
-fn feed_watchdog() {
-    unsafe {
-        esp_idf_sys::esp_task_wdt_reset();
-    }
-}
-
-
-fn feed_watchdog_during<F: FnMut()>(mut f: F, steps: u32, delay_ms: u32) {
-    for _ in 0..steps {
-        feed_watchdog();
-        f();
-        FreeRtos::delay_ms(delay_ms);
     }
 }
 
@@ -46,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let peripherals = Peripherals::take().unwrap();
     let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
-    // I2C0: Power (AXP202)
+    // I2C0: Power
     let i2c0_cfg = I2cConfig::new().baudrate(100_000.Hz());
     let i2c0_driver = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
@@ -56,19 +40,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let mut i2c0_manager = I2cManager::new(i2c0_driver);
 
-    scan_i2c(&mut i2c0_manager);
+    let _ = scan_i2c(&mut i2c0_manager);
 
     // I2C1: Touch
-    // let i2c1_cfg = I2cConfig::new().baudrate(400_000.Hz());
-    // let i2c1_driver = esp_idf_hal::i2c::I2cDriver::new(
-    //     peripherals.i2c1,
-    //     peripherals.pins.gpio23,
-    //     peripherals.pins.gpio32,
-    //     &i2c1_cfg,
-    // )?;
-    // let i2c1_manager = I2cManager::new(i2c1_driver);
+    let i2c1_cfg = I2cConfig::new().baudrate(400_000.Hz());
+    let i2c1_driver = esp_idf_hal::i2c::I2cDriver::new(
+        peripherals.i2c1,
+        peripherals.pins.gpio23,
+        peripherals.pins.gpio32,
+        &i2c1_cfg,
+    )?;
+    let i2c1_manager = I2cManager::new(i2c1_driver);
 
-    // PowerManager の初期化をここで
+    // PowerManager init
     let mut power = PowerManager::new(i2c0_manager.clone())?;
     power.set_backlight(true)?;
 
@@ -83,9 +67,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         display_buffer.as_mut(),
     )?;
 
-    let touch = Touch::new(i2c0_manager.clone())?;
+    let touch = Touch::new(i2c1_manager)?;
 
-    let mut app = App::new(i2c0_manager, display, power, touch);
+    let mut app = App::new(i2c0_manager, display, power, touch)?;
     app.run()?;
     Ok(())
 }

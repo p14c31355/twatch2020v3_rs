@@ -35,35 +35,56 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     pub fn new(
-        mut i2c: I2cManager,
-        mut display: TwatchDisplay<'a>,
+        i2c: I2cManager,
+        display: TwatchDisplay<'a>,
         mut power: PowerManager,
-        mut touch: Touch,
-    ) -> Self {
-        PowerManager::new(i2c.clone());
-        power.set_backlight(true);
-        feed_watchdog();
+        touch: Touch,
+    ) -> Result<Self> {
+        power.set_backlight(true)?;
 
-        Self {
+        Ok(Self {
             i2c,
             display,
             power,
             touch,
             state: AppState::Launcher,
-        }
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
         loop {
             feed_watchdog();
             self.draw_status_bar()?;
+
+            if let Some(tp) = self.touch.read_event()? {
+                self.handle_touch(tp)?;
+            }
+
             self.handle_state()?;
             self.feed_and_delay(20)?;
         }
     }
 
+    fn handle_touch(&mut self, tp: crate::drivers::touch::TouchPoint) -> Result<()> {
+        match self.state {
+            AppState::Launcher => {
+                if tp.on_button1() {
+                    self.state = AppState::Settings;
+                } else if tp.on_button2() {
+                    self.state = AppState::Battery;
+                }
+            }
+            AppState::Settings | AppState::Battery => {
+                if tp.on_back() {
+                    self.state = AppState::Launcher;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn handle_state(&mut self) -> Result<()> {
-        match self.state.clone() {
+        match self.state {
             AppState::Launcher => self.show_launcher()?,
             AppState::Settings => self.show_settings()?,
             AppState::Battery => self.show_battery()?,
@@ -73,37 +94,18 @@ impl<'a> App<'a> {
 
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
-        if let Some(event) = self.touch.read_event()? {
-            self.state = if event.on_button1() {
-                AppState::Settings
-            } else if event.on_button2() {
-                AppState::Battery
-            } else {
-                self.state.clone()
-            };
-        }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_settings(&mut self) -> Result<()> {
-        let _ = self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
+        self.display.display.clear(Rgb565::BLACK);
         draw_text(&mut self.display.display, "Settings", 10, 40)?;
-        if let Some(event) = self.touch.read_event()? {
-            if event.on_back() {
-                self.state = AppState::Launcher;
-            }
-        }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_battery(&mut self) -> Result<()> {
-        let _ = self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
+        self.display.display.clear(Rgb565::BLACK);
         let voltage = self.power.read_voltage()?;
         draw_text(
             &mut self.display.display,
@@ -111,12 +113,6 @@ impl<'a> App<'a> {
             10,
             40,
         )?;
-        if let Some(event) = self.touch.read_event()? {
-            if event.on_back() {
-                self.state = AppState::Launcher;
-            }
-        }
-        self.feed_and_delay(20)?;
         Ok(())
     }
 
@@ -130,7 +126,6 @@ impl<'a> App<'a> {
         )?;
         let battery = self.power.get_battery_percentage()?;
         draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10)?;
-        feed_watchdog();
         Ok(())
     }
 
