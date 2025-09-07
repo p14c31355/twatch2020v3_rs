@@ -1,4 +1,3 @@
-// src/app.rs
 use anyhow::Result;
 use crate::{
     drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch},
@@ -12,17 +11,12 @@ use embedded_graphics::{
     Drawable,
 };
 use esp_idf_hal::delay::FreeRtos;
-use esp_idf_hal::delay::Delay;
-use chrono::{NaiveTime, Timelike};
+use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig, TWDTWatch};
+use esp_idf_hal::peripherals::Peripherals;
+use chrono::{Local, Timelike};
+use std::time::Duration;
 
-const DELAY_MS: u32 = 100;
-pub fn feed_watchdog() {
-    // Note: This is a delay, not a true watchdog feed. If a watchdog is enabled, it needs to be fed.
-    FreeRtos::delay_ms(DELAY_MS);
-}
-
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AppState {
     Launcher,
     Settings,
@@ -35,119 +29,157 @@ pub struct App<'a> {
     power: PowerManager,
     touch: Touch,
     state: AppState,
+    watchdog: TWDTWatch,
 }
 
 impl<'a> App<'a> {
-    pub fn new(i2c: I2cManager, display: TwatchDisplay<'a>, power: PowerManager, touch: Touch) -> Self {
-        Self {
+    pub fn new(
+        i2c: I2cManager,
+        display: TwatchDisplay<'a>,
+        power: PowerManager,
+        touch: Touch,
+        peripherals: &Peripherals,
+    ) -> Result<Self> {
+        // タスクウォッチドッグ設定
+        let config = TWDTConfig {
+            duration: Duration::from_secs(30), // 30秒
+            panic_on_trigger: true,
+            subscribed_idle_tasks: Default::default(),
+        };
+        let driver = TWDTDriver::new(peripherals.twdt, &config)?;
+        let watchdog = driver.watch_current_task()?; // 現在のタスクを監視対象に
+
+        Ok(Self {
             i2c,
             display,
             power,
             touch,
             state: AppState::Launcher,
-        }
+            watchdog,
+        })
     }
 
     pub fn init(&mut self) -> Result<()> {
         self.power.init_power(&mut self.i2c)?;
         self.power.set_backlight(&mut self.i2c, true)?;
+        self.feed_watchdog()?;
         Ok(())
     }
 
     pub fn run(&mut self) -> Result<()> {
         loop {
+            self.feed_watchdog()?;
             self.draw_status_bar()?;
-            feed_watchdog();
-
-            match self.state {
-                AppState::Launcher => self.show_launcher()?,
-                AppState::Settings => self.show_settings()?,
-                AppState::Battery => self.show_battery()?,
-            }
-            feed_watchdog();
+            self.handle_state()?;
+            self.feed_and_delay(20)?;
         }
+    }
+
+    fn handle_state(&mut self) -> Result<()> {
+        match self.state.clone() {
+            AppState::Launcher => self.show_launcher()?,
+            AppState::Settings => self.show_settings()?,
+            AppState::Battery => self.show_battery()?,
+        }
+        Ok(())
     }
 
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
-
-        let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
-        Text::new("Launcher: tap for apps", Point::new(10, 40), text_style)
-            .draw(&mut self.display.display);
-        feed_watchdog();
+        self.feed_watchdog()?;
+        draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40, &mut self.watchdog)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
-            if event.on_button1() {
-                self.state = AppState::Settings;
+            self.state = if event.on_button1() {
+                AppState::Settings
             } else if event.on_button2() {
-                self.state = AppState::Battery;
-            }
+                AppState::Battery
+            } else {
+                self.state.clone()
+            };
         }
-
-        feed_watchdog();
-        FreeRtos::delay_ms(20);
+        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_settings(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
-
-        let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
-        Text::new("Settings", Point::new(10, 40), text_style)
-            .draw(&mut self.display.display);
-        feed_watchdog();
+        self.feed_watchdog()?;
+        draw_text(&mut self.display.display, "Settings", 10, 40, &mut self.watchdog)?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
         }
-
-        feed_watchdog();
-        FreeRtos::delay_ms(20);
+        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn show_battery(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        feed_watchdog();
+        self.feed_watchdog()?;
 
         let voltage = self.power.read_voltage(&mut self.i2c)?;
-        let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
-        Text::new(&format!("Battery: {voltage} mV"), Point::new(10, 40), text_style)
-            .draw(&mut self.display.display);
-        feed_watchdog();
+        draw_text(
+            &mut self.display.display,
+            &format!("Battery: {voltage} mV"),
+            10,
+            40,
+            &mut self.watchdog,
+        )?;
 
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
         }
-
-        feed_watchdog();
-        FreeRtos::delay_ms(20);
+        self.feed_and_delay(20)?;
         Ok(())
     }
 
     fn draw_status_bar(&mut self) -> Result<()> {
-        let now = NaiveTime::from_hms_opt(12, 34, 56).unwrap();
-        let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
+        let now = Local::now();
+        draw_text(
+            &mut self.display.display,
+            &format!("{:02}:{:02}", now.hour(), now.minute()),
+            10,
+            10,
+            &mut self.watchdog,
+        )?;
 
-        let time_str = format!("{:02}:{:02}", now.hour(), now.minute());
-        Text::new(&time_str, Point::new(10, 10), text_style)
-            .draw(&mut self.display.display);
-        feed_watchdog();
-
-        let battery_percentage = self.power.get_battery_percentage(&mut self.i2c)?;
-        let battery_str = format!("{battery_percentage}%");
-        Text::new(&battery_str, Point::new(200, 10), text_style)
-            .draw(&mut self.display.display);
-        feed_watchdog();
-
-        FreeRtos::delay_ms(20);
-
+        let battery = self.power.get_battery_percentage(&mut self.i2c)?;
+        draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10, &mut self.watchdog)?;
         Ok(())
     }
+
+    fn feed_watchdog(&mut self) -> Result<()> {
+        self.watchdog.feed();
+        Ok(())
+    }
+
+    fn feed_and_delay(&mut self, ms: u32) -> Result<()> {
+        let mut remaining = ms;
+        while remaining > 0 {
+            let step = remaining.min(10);
+            FreeRtos::delay_ms(step);
+            self.feed_watchdog()?;
+            remaining -= step;
+        }
+        Ok(())
+    }
+}
+
+/// 共通テキスト描画 + WDT feed
+fn draw_text<D: DrawTarget<Color = Rgb565>>(
+    target: &mut D,
+    content: &str,
+    x: i32,
+    y: i32,
+    watchdog: &mut TWDTWatch,
+) -> Result<()> {
+    let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
+    Text::new(content, Point::new(x, y), style).draw(target);
+    watchdog.feed();
+    Ok(())
 }
