@@ -1,3 +1,4 @@
+// src/app.rs
 use crate::{
     drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch},
     manager::I2cManager,

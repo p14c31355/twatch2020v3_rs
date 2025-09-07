@@ -44,10 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let peripherals = Peripherals::take().unwrap();
 
     // Watchdog init
-    unsafe {
-        esp_idf_sys::esp_task_wdt_init(core::ptr::null());
-        esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
-    }
+    // unsafe {
+    //     esp_idf_sys::esp_task_wdt_init(core::ptr::null());
+    //     esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
+    // }
     // Display buffer
     let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     feed_watchdog_during(|| {}, 5, 10); // initialize during feed
 
     // I2C init
-    let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
+    let i2c_cfg = I2cConfig::new().baudrate(100_000.Hz());
     let i2c_hal_driver = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio21,
@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
-        peripherals.pins.gpio23,
+        peripherals.pins.gpio19,
         peripherals.pins.gpio5,
         peripherals.pins.gpio27,
         peripherals.pins.gpio33,

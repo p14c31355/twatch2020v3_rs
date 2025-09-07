@@ -7,7 +7,7 @@ use embedded_graphics::{
 };
 use esp_idf_hal::{
     delay::FreeRtos,
-    gpio::{AnyIOPin, Gpio27, Gpio33, Output, PinDriver},
+    gpio::{Gpio27, Gpio33, Output, PinDriver},
     spi::{
         SPI2, SpiDeviceDriver, SpiDriver,
         config::{Config as SpiConfig, DriverConfig as SpiDriverConfig},
@@ -28,7 +28,7 @@ impl<'a> TwatchDisplay<'a> {
     pub fn new(
         spi2: SPI2,
         gpio18: esp_idf_hal::gpio::Gpio18,
-        gpio23: esp_idf_hal::gpio::Gpio23,
+        gpio19: esp_idf_hal::gpio::Gpio19,
         gpio5: esp_idf_hal::gpio::Gpio5,
         gpio27: Gpio27,
         gpio33: Gpio33,
@@ -37,15 +37,15 @@ impl<'a> TwatchDisplay<'a> {
         let driver = SpiDriver::new(
             spi2,
             gpio18,
-            gpio23,
-            None::<AnyIOPin>,
+            gpio19,
+            None::<esp_idf_hal::gpio::AnyIOPin>,
             &SpiDriverConfig::new(),
         )?;
 
         let spi_device = SpiDeviceDriver::new(
             driver,
             Some(gpio5),
-            &SpiConfig::new().baudrate(26.MHz().into()),
+            &SpiConfig::new().baudrate(10.MHz().into()),
         )?;
 
         let dc: PinDriver<Gpio27, Output> = PinDriver::output(gpio27)?;
@@ -76,21 +76,15 @@ impl<'a> TwatchDisplay<'a> {
         D: embedded_graphics::Drawable<Color = Rgb565>,
     {
         FreeRtos::delay_ms(1);
-
-        drawable
-            .draw(&mut self.display)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
+        drawable.draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(())
     }
 
     pub fn safe_fill_rect(&mut self, rect: Rectangle, color: Rgb565) -> Result<()> {
         FreeRtos::delay_ms(1);
-
         rect.into_styled(PrimitiveStyle::with_fill(color))
             .draw(&mut self.display)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
         Ok(())
     }
 }

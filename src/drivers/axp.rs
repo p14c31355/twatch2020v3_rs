@@ -21,10 +21,7 @@ impl PowerManager {
         let mut axp = Axpxx::new(i2c);
         let mut delay = FreeRtos;
 
-        let state = match on {
-            true => PowerState::On,
-            false => PowerState::Off,
-        };
+        let state = if on { PowerState::On } else { PowerState::Off };
 
         axp.set_power_output(Power::Ldo2, state, &mut delay)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
