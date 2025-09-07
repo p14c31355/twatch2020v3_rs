@@ -15,9 +15,11 @@ use esp_idf_hal::delay::FreeRtos;
 
 pub fn feed_watchdog() {
     unsafe {
+        let _ = esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
         esp_idf_sys::esp_task_wdt_reset();
     }
 }
+
 
 #[derive(Debug, Clone)]
 pub enum AppState {
@@ -36,11 +38,15 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     pub fn new(
-        i2c: I2cManager,
-        display: TwatchDisplay<'a>,
-        power: PowerManager,
-        touch: Touch,
+        mut i2c: I2cManager,
+        mut display: TwatchDisplay<'a>,
+        mut power: PowerManager,
+        mut touch: Touch,
     ) -> Self {
+        power.init_power(&mut i2c).ok();
+        power.set_backlight(&mut i2c, true).ok();
+        feed_watchdog();
+
         Self {
             i2c,
             display,
