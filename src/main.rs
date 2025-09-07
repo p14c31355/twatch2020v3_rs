@@ -15,6 +15,7 @@ use drivers::touch::Touch;
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
+    println!("WDT timeout: {}", esp_idf_sys::CONFIG_ESP_TASK_WDT_TIMEOUT_S);
 
     let peripherals = Peripherals::take().unwrap();
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
