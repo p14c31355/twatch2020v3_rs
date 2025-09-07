@@ -15,9 +15,10 @@ use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::delay::Delay;
 use chrono::{NaiveTime, Timelike};
 
-const DELAY_MS: i32 = 100;
+const DELAY_MS: u32 = 100;
 pub fn feed_watchdog() {
-    Delay::new(DELAY_MS as u32).delay_ms(DELAY_MS as u32);
+    // Note: This is a delay, not a true watchdog feed. If a watchdog is enabled, it needs to be fed.
+    FreeRtos::delay_ms(DELAY_MS);
 }
 
 
