@@ -24,7 +24,7 @@ experimental = ["esp-idf-svc/experimental"]
 [dependencies]
 esp-idf-svc = "0.51"
 esp-idf-hal = "0.45.2" # Add esp-idf-hal dependency
-esp-idf-sys = "0.36.1"
+esp-idf-sys = { version = "0.36.1", features = ["panic_handler"] }
 embedded-hal = "1.0.0"
 anyhow = "1"
 embedded-graphics = "0.8"
@@ -36,6 +36,8 @@ ft6x36 = "0.6.2"
 chrono = "0.4.41"
 heapless = "0.9.1"
 display-interface-spi = "0.5.0"
+log = "0.4.28"
+once_cell = "1.19.0" # Add once_cell dependency
 
 [build-dependencies]
 embuild = "0.33.1"

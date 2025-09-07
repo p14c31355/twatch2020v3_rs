@@ -28,7 +28,7 @@ pub struct App<'a> {
     power: PowerManager,
     touch: Touch,
     state: AppState,
-    twdt: TWDTDriver<'a>,
+    twdt: TWDTDriver<'a>, // TWDTDriverの所有権を保持
 }
 
 impl<'a> App<'a> {
@@ -37,32 +37,25 @@ impl<'a> App<'a> {
     mut display: TwatchDisplay<'a>,
     mut power: PowerManager,
     mut touch: Touch,
-    twdt_ref: &'a mut TWDT,
+    mut twdt: TWDTDriver<'a>, // TWDTDriverの所有権を受け取る
 ) -> Result<Self> {
-    let config = TWDTConfig {
-        duration: Duration::from_secs(30),
-        panic_on_trigger: true,
-        subscribed_idle_tasks: Default::default(),
-    };
-    let mut twdt_driver = TWDTDriver::new(twdt_ref, &config)?;
-
     // 起動直後にすぐ feed
-    twdt_driver.watch_current_task()?;
+    twdt.watch_current_task()?;
     FreeRtos::delay_ms(10);
 
     // I2C初期化
     power.init_power(&mut i2c)?;
-    twdt_driver.watch_current_task()?;
+    twdt.watch_current_task()?;
     FreeRtos::delay_ms(10);
 
     // バックライト設定
     power.set_backlight(&mut i2c, true)?;
-    twdt_driver.watch_current_task()?;
+    twdt.watch_current_task()?;
     FreeRtos::delay_ms(10);
 
     // ディスプレイクリア
     display.display.clear(Rgb565::BLACK);
-    twdt_driver.watch_current_task()?;
+    twdt.watch_current_task()?;
     FreeRtos::delay_ms(10);
 
     Ok(Self {
@@ -71,7 +64,7 @@ impl<'a> App<'a> {
         power,
         touch,
         state: AppState::Launcher,
-        twdt: twdt_driver,
+        twdt, // 所有権を直接格納
     })
 }
 
@@ -144,7 +137,8 @@ impl<'a> App<'a> {
     }
 
     fn feed_watchdog(&mut self) -> Result<()> {
-        self.twdt.watch_current_task()?;
+        let mut subscription = self.twdt.watch_current_task()?;
+        subscription.feed();
         Ok(())
     }
 

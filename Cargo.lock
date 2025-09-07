@@ -1769,8 +1769,10 @@ dependencies = [
  "esp-idf-sys",
  "ft6x36",
  "heapless 0.9.1",
+ "log",
  "mipidsi",
  "mousefood",
+ "once_cell",
  "pcf8563",
 ]
 
