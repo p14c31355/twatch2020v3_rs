@@ -8,3 +8,12 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=8000
 # Workaround for https://github.com/espressif/esp-idf/issues/7631
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+
+# --- WDT Configuration for Bootloader and Initial Application Startup ---
+# Enable Bootloader Watchdog Timer
+CONFIG_BOOTLOADER_WDT_ENABLE=y
+# Set Bootloader Watchdog Timeout (e.g., 30 seconds, default is often 9 seconds)
+CONFIG_BOOTLOADER_WDT_TIME_MS=30000
+
+# Set Initial Task Watchdog Timeout for the application (e.g., 10 seconds, default is often 3 seconds)
+CONFIG_ESP_TASK_WDT_INIT_TIMEOUT_S=10
