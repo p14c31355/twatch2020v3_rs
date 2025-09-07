@@ -34,13 +34,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Peripherals
     let peripherals = Peripherals::take().unwrap();
 
-    // TWDT 初期化
-    let twdt_config = TWDTConfig {
-        duration: std::time::Duration::from_secs(10),
-        ..Default::default()
-    };
-    let twdt_driver = TWDTDriver::new(peripherals.twdt, &twdt_config)?;
-
     // Display 初期化
     let mut display_buffer = [0_u8; 240 * 240 * 2];
 
@@ -68,8 +61,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let power = PowerManager::new()?;
     let touch = Touch::new()?;
 
+    // TWDT 初期化
+    let twdt_config = TWDTConfig {
+        duration: std::time::Duration::from_secs(10),
+        ..Default::default()
+    };
+    let mut twdt_driver = TWDTDriver::new(peripherals.twdt, &twdt_config)?;
+
     // アプリ初期化
-    let mut app = App::new(i2c_manager, display, power, touch, twdt_driver)?;
+    let mut app = App::new(i2c_manager, display, power, touch, &mut twdt_driver)?;
 
     app.run()?; // main loop
     Ok(())

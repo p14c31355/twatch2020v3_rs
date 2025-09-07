@@ -15,8 +15,6 @@ use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::task::watchdog::TWDTDriver;
 use esp_idf_hal::task::watchdog::WatchdogSubscription;
 use chrono::{Local, Timelike};
-use std::time::Duration;
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub enum AppState {
@@ -24,66 +22,55 @@ pub enum AppState {
     Settings,
     Battery,
 }
-
-pub struct App<'a> {
+// TWDTDriverのライフタイムをApp構造体と合わせる
+pub struct App<'a, 'b> {
     i2c: I2cManager,
     display: TwatchDisplay<'a>,
     power: PowerManager,
     touch: Touch,
     state: AppState,
-    twdt_driver: Arc<Mutex<TWDTDriver<'a>>>, // TWDTDriverの所有権をArc<Mutex>で共有
-    twdt_subscription: Arc<Mutex<WatchdogSubscription<'a>>>,
+    twdt_driver: TWDTDriver<'a, 'b>, // TWDTDriverの所有権を保持
+    twdt_subscription: WatchdogSubscription<'a>, // TWDTDriverのライフタイムに依存
 }
 
-impl<'a> App<'a> {
+impl<'a, 'b> App<'a, 'b> {
     pub fn new(
         mut i2c: I2cManager,
         mut display: TwatchDisplay<'a>,
-        mut power: PowerManager,
+        mut power: PowerManager, // powerのライフタイムをApp構造体と合わせる
         mut touch: Touch,
-        twdt_driver_param: TWDTDriver<'a>,
+        mut twdt_driver: TWDTDriver, // TWDTDriverの所有権を取得
     ) -> Result<Self> {
-        let twdt_driver_arc = Arc::new(Mutex::new(twdt_driver_param));
+        let mut twdt_subscription = twdt_driver.watch_current_task()?;
+        twdt_subscription.feed();
+        FreeRtos::delay_ms(10);
 
-        // twdt_driver_arc を app_instance に移動する前に twdt_subscription_arc を作成
-    let twdt_subscription_arc = Arc::new(Mutex::new(
-        twdt_driver_arc.lock().unwrap().watch_current_task()?,
-    ));
+        power.init_power(&mut i2c)?;
+        twdt_subscription.feed();
+        FreeRtos::delay_ms(10);
 
-        let mut app_instance = Self { // app_instance を可変として宣言
+        power.set_backlight(&mut i2c, true)?;
+        twdt_subscription.feed();
+        FreeRtos::delay_ms(10);
+
+        display.display.clear(Rgb565::BLACK);
+        twdt_subscription.feed();
+        FreeRtos::delay_ms(10);
+
+        Ok(Self {
             i2c,
             display,
             power,
             touch,
             state: AppState::Launcher,
-            twdt_driver: twdt_driver_arc, // twdt_driver_arc の所有権を移動
-            twdt_subscription: twdt_subscription_arc,
-        };
-
-        app_instance.twdt_subscription.lock().unwrap().feed();
-        FreeRtos::delay_ms(10);
-
-        // I2C初期化
-        app_instance.power.init_power(&mut app_instance.i2c)?;
-        app_instance.twdt_subscription.lock().unwrap().feed();
-        FreeRtos::delay_ms(10);
-
-        // バックライト設定
-        app_instance.power.set_backlight(&mut app_instance.i2c, true)?; // app_instance.powerを使用
-        app_instance.twdt_subscription.lock().unwrap().feed();
-        FreeRtos::delay_ms(10);
-
-        // ディスプレイクリア
-        app_instance.display.display.clear(Rgb565::BLACK);
-        app_instance.twdt_subscription.lock().unwrap().feed();
-        FreeRtos::delay_ms(10);
-
-        Ok(app_instance)
+            twdt_driver, // twdt_driverフィールドを初期化
+            twdt_subscription,
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
         loop {
-            self.twdt_subscription.lock().unwrap().feed();
+            self.twdt_subscription.feed();
             self.draw_status_bar()?;
             self.handle_state()?;
             self.feed_and_delay(20)?;
@@ -145,7 +132,7 @@ impl<'a> App<'a> {
         draw_text(&mut self.display.display, &format!("{:02}:{:02}", now.hour(), now.minute()), 10, 10)?;
         let battery = self.power.get_battery_percentage(&mut self.i2c)?;
         draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10)?;
-        self.twdt_subscription.lock().unwrap().feed();
+        self.twdt_subscription.feed();
         Ok(())
     }
 
@@ -154,7 +141,7 @@ impl<'a> App<'a> {
         while remaining > 0 {
             let step = remaining.min(10);
             FreeRtos::delay_ms(step);
-            self.twdt_subscription.lock().unwrap().feed();
+            self.twdt_subscription.feed();
             remaining -= step;
         }
         Ok(())
