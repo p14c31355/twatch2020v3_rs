@@ -34,6 +34,7 @@ impl Touch
             let touch_event = match ft6x36_touch_point.touch_type {
                 TouchType::Press => TouchEvent::Press,
                 TouchType::Release => TouchEvent::Release,
+                TouchType::Move => TouchEvent::Move,
                 _ => return Ok(None),
             };
 
