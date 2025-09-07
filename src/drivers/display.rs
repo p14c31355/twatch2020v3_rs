@@ -67,4 +67,27 @@ impl<'a> TwatchDisplay<'a> {
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(())
     }
+
+    pub fn safe_draw<D>(&mut self, drawable: &D) -> Result<()>
+    where
+        D: embedded_graphics::Drawable<Color = Rgb565>,
+    {
+        FreeRtos::delay_ms(1);
+
+        drawable
+            .draw(&mut self.display)
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+        Ok(())
+    }
+
+    pub fn safe_fill_rect(&mut self, rect: Rectangle, color: Rgb565) -> Result<()> {
+        FreeRtos::delay_ms(1);
+
+        rect.into_styled(PrimitiveStyle::with_fill(color))
+            .draw(&mut self.display)
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+        Ok(())
+    }
 }
