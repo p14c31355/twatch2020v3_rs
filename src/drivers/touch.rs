@@ -26,7 +26,7 @@ impl Touch {
 
 impl Touch
 {
-    pub fn read_event(&mut self, i2c: &I2cManager) -> Result<Option<TouchPoint>, anyhow::Error> {
+    pub fn read_event(&mut self, i2c: &mut I2cManager) -> Result<Option<TouchPoint>, anyhow::Error> {
         let mut driver = Ft6x36::new(i2c, Dimension(240, 240));
         let raw_event: RawTouchEvent = driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;
 

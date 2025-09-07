@@ -14,15 +14,13 @@ use drivers::axp::PowerManager;
 use drivers::touch::Touch;
 
 use std::panic;
-use esp_idf_hal::task::watchdog::{TWDT, TWDTDriver, TWDTConfig};
+use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ESP-IDF 初期化
     esp_idf_sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     log::set_max_level(log::LevelFilter::Debug);
-
-    // println!("WDT timeout: {}", esp_idf_sys::CONFIG_ESP_TASK_WDT_TIMEOUT_S);
 
     // Panic hook
     panic::set_hook(Box::new(|info| {
@@ -36,12 +34,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Peripherals
     let peripherals = Peripherals::take().unwrap();
 
-    // TWDT 初期化（全タスク監視、10秒タイムアウトなど）
+    // TWDT 初期化
     let twdt_config = TWDTConfig {
         duration: std::time::Duration::from_secs(10),
         ..Default::default()
     };
-    let mut twdt_driver = TWDTDriver::new(peripherals.twdt, &twdt_config)?;
+    let twdt_driver = TWDTDriver::new(peripherals.twdt, &twdt_config)?;
+
+    // Display 初期化
+    let mut display_buffer = [0_u8; 240 * 240 * 2];
 
     // I2C 初期化
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
@@ -53,8 +54,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let i2c_manager = I2cManager::new(i2c_hal_driver);
 
-    // Display 初期化
-    let mut display_buffer = [0_u8; 240 * 240 * 2];
     let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
