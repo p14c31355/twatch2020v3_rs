@@ -5,7 +5,6 @@ mod drivers;
 
 use anyhow::Result;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::i2c::I2cConfig;
 use esp_idf_hal::prelude::*;
 use drivers::display::TwatchDisplay;
@@ -45,6 +44,7 @@ fn main() -> Result<()> {
 
     let mut app = App::new(i2c_manager, display, power, touch);
 
-    app.run(&mut FreeRtos)?;
+    app.init()?;
+    app.run()?;
     Ok(())
 }

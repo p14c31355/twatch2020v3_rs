@@ -47,7 +47,13 @@ impl<'a> App<'a> {
         }
     }
 
-    pub fn run(&mut self, _delay: &mut FreeRtos) -> Result<()> {
+    pub fn init(&mut self) -> Result<()> {
+        self.power.init_power(&mut self.i2c)?;
+        self.power.set_backlight(&mut self.i2c, true)?;
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<()> {
         loop {
             self.draw_status_bar()?;
             feed_watchdog();
