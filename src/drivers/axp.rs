@@ -1,6 +1,7 @@
 use anyhow::Result;
-use axp20x::{Axpxx, PowerOutput};
+use axp20x::{Axpxx, Power, PowerState};
 use crate::manager::I2cManager;
+use esp_idf_hal::delay::FreeRtos;
 
 pub struct PowerManager;
 
@@ -11,28 +12,28 @@ impl PowerManager {
 
     pub fn init_power(&mut self, i2c: &mut I2cManager) -> Result<()> {
         let mut axp = Axpxx::new(i2c);
+        axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        Ok(())
+    }
 
-        axp.set_power_output(PowerOutput::LDO2, true, 0)
+    pub fn set_backlight(&mut self, i2c: &mut I2cManager, on: bool) -> Result<()> {
+        let mut axp = Axpxx::new(i2c);
+        let mut delay = FreeRtos;
+
+        let state = match on {
+            true => PowerState::On,
+            false => PowerState::Off,
+        };
+
+        axp.set_power_output(Power::Ldo2, state, &mut delay)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
-        axp.set_power_output(PowerOutput::LDO3, true, 0)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
-        axp.set_power_output(PowerOutput::DCDC1, true, 0)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
-        axp.set_charge_enable(true)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
         Ok(())
     }
 
     pub fn get_battery_percentage(&mut self, i2c: &mut I2cManager) -> Result<u8> {
         let mut axp = Axpxx::new(i2c);
-        let percentage = axp
-            .get_battery_percentage()
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        Ok(percentage)
+        axp.get_battery_percentage()
+            .map_err(|e| anyhow::anyhow!("{:?}", e))
     }
 
     pub fn read_voltage(&mut self, i2c: &mut I2cManager) -> Result<u16> {
