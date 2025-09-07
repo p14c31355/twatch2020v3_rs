@@ -17,7 +17,7 @@ impl PowerManager {
         Ok(())
     }
 
-    pub fn set_backlight(&mut self, i2c: &mut I2cManager, on: bool) -> Result<()> {
+    pub fn set_backlight(&self, i2c: &mut I2cManager, on: bool) -> Result<()> {
         let mut axp = Axpxx::new(i2c);
         let mut delay = FreeRtos;
 
