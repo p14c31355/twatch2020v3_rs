@@ -72,7 +72,7 @@ impl<'a> App<'a> {
     }
 
     fn show_launcher(&mut self) -> Result<()> {
-        let _ = self.display.display.clear(Rgb565::BLACK);
+        self.display.display.clear(Rgb565::BLACK)?;
         feed_watchdog();
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
         if let Some(event) = self.touch.read_event(&mut self.i2c)? {
