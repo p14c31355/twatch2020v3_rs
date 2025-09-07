@@ -1,3 +1,4 @@
+// src/app.rs
 use anyhow::Result;
 use crate::{
     drivers::{axp::PowerManager, display::TwatchDisplay, touch::Touch},
@@ -14,6 +15,7 @@ use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig, TWDT};
 use chrono::{Local, Timelike};
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub enum AppState {
@@ -28,34 +30,32 @@ pub struct App<'a> {
     power: PowerManager,
     touch: Touch,
     state: AppState,
-    twdt: TWDTDriver<'a>, // TWDTDriverの所有権を保持
+    twdt_subscription: Arc<Mutex<TWDT>>,
 }
 
 impl<'a> App<'a> {
     pub fn new(
-    mut i2c: I2cManager,
+    i2c: I2cManager,
     mut display: TwatchDisplay<'a>,
-    mut power: PowerManager,
-    mut touch: Touch,
-    mut twdt: TWDTDriver<'a>, // TWDTDriverの所有権を受け取る
+    power: PowerManager,
+    touch: Touch,
+    mut twdt: TWDTDriver<'a>,
 ) -> Result<Self> {
-    // 起動直後にすぐ feed
+
+    let twdt_subscription = Arc::new(Mutex::new(twdt.subscribe()?));
     twdt.watch_current_task()?;
     FreeRtos::delay_ms(10);
 
-    // I2C初期化
-    power.init_power(&mut i2c)?;
-    twdt.watch_current_task()?;
+    power.init_power(&i2c)?;
+    twdt_subscription.lock().unwrap().feed();
     FreeRtos::delay_ms(10);
 
-    // バックライト設定
-    power.set_backlight(&mut i2c, true)?;
-    twdt.watch_current_task()?;
+    power.set_backlight(&i2c, true)?;
+    twdt_subscription.lock().unwrap().feed();
     FreeRtos::delay_ms(10);
 
-    // ディスプレイクリア
     display.display.clear(Rgb565::BLACK);
-    twdt.watch_current_task()?;
+    twdt_subscription.lock().unwrap().feed();
     FreeRtos::delay_ms(10);
 
     Ok(Self {
@@ -64,13 +64,13 @@ impl<'a> App<'a> {
         power,
         touch,
         state: AppState::Launcher,
-        twdt, // 所有権を直接格納
+        twdt_subscription,
     })
 }
 
     pub fn run(&mut self) -> Result<()> {
         loop {
-            self.feed_watchdog()?;
+            self.twdt_subscription.lock().unwrap().feed();
             self.draw_status_bar()?;
             self.handle_state()?;
             self.feed_and_delay(20)?;
@@ -89,7 +89,7 @@ impl<'a> App<'a> {
     fn show_launcher(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event(&self.i2c)? {
             self.state = if event.on_button1() {
                 AppState::Settings
             } else if event.on_button2() {
@@ -105,7 +105,7 @@ impl<'a> App<'a> {
     fn show_settings(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
         draw_text(&mut self.display.display, "Settings", 10, 40)?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event(&self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -116,9 +116,9 @@ impl<'a> App<'a> {
 
     fn show_battery(&mut self) -> Result<()> {
         self.display.display.clear(Rgb565::BLACK);
-        let voltage = self.power.read_voltage(&mut self.i2c)?;
+        let voltage = self.power.read_voltage(&self.i2c)?;
         draw_text(&mut self.display.display, &format!("Battery: {voltage} mV"), 10, 40)?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event(&self.i2c)? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -130,15 +130,9 @@ impl<'a> App<'a> {
     fn draw_status_bar(&mut self) -> Result<()> {
         let now = Local::now();
         draw_text(&mut self.display.display, &format!("{:02}:{:02}", now.hour(), now.minute()), 10, 10)?;
-        let battery = self.power.get_battery_percentage(&mut self.i2c)?;
+        let battery = self.power.get_battery_percentage(&self.i2c)?;
         draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10)?;
-        self.feed_watchdog()?;
-        Ok(())
-    }
-
-    fn feed_watchdog(&mut self) -> Result<()> {
-        let mut subscription = self.twdt.watch_current_task()?;
-        subscription.feed();
+        self.twdt_subscription.lock().unwrap().feed();
         Ok(())
     }
 
@@ -147,7 +141,7 @@ impl<'a> App<'a> {
         while remaining > 0 {
             let step = remaining.min(10);
             FreeRtos::delay_ms(step);
-            self.feed_watchdog()?;
+            self.twdt_subscription.lock().unwrap().feed();
             remaining -= step;
         }
         Ok(())
