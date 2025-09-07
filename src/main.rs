@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let peripherals = Peripherals::take().unwrap();
     let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
-    let mut power = PowerManager::new()?;
+    let power = PowerManager::new();
     feed_watchdog_during(|| {}, 5, 10);
 
     let i2c0_cfg = I2cConfig::new().baudrate(100_000.Hz());
