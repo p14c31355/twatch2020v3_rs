@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let peripherals = Peripherals::take().unwrap();
 
     // Display 初期化
-    let mut display_buffer = [0_u8; 240 * 240 * 2];
+    let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
     // I2C 初期化
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
