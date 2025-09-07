@@ -40,8 +40,8 @@ impl<'a> App<'a> {
         mut power: PowerManager,
         mut touch: Touch,
     ) -> Self {
-        power.init_power(&mut i2c).ok();
-        power.set_backlight(&mut i2c, true).ok();
+        power.init_power(&mut i2c)?;
+        power.set_backlight(&mut i2c, true)?;
         feed_watchdog();
 
         Self {
