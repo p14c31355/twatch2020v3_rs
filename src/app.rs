@@ -40,8 +40,8 @@ impl<'a> App<'a> {
         mut power: PowerManager,
         mut touch: Touch,
     ) -> Self {
-        power.init_power(&mut i2c);
-        power.set_backlight(&mut i2c, true);
+        PowerManager::new(i2c.clone());
+        power.set_backlight(true);
         feed_watchdog();
 
         Self {
@@ -75,7 +75,7 @@ impl<'a> App<'a> {
         self.display.display.clear(Rgb565::BLACK);
         feed_watchdog();
         draw_text(&mut self.display.display, "Launcher: tap for apps", 10, 40)?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event()? {
             self.state = if event.on_button1() {
                 AppState::Settings
             } else if event.on_button2() {
@@ -92,7 +92,7 @@ impl<'a> App<'a> {
         let _ = self.display.display.clear(Rgb565::BLACK);
         feed_watchdog();
         draw_text(&mut self.display.display, "Settings", 10, 40)?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -104,14 +104,14 @@ impl<'a> App<'a> {
     fn show_battery(&mut self) -> Result<()> {
         let _ = self.display.display.clear(Rgb565::BLACK);
         feed_watchdog();
-        let voltage = self.power.read_voltage(&mut self.i2c)?;
+        let voltage = self.power.read_voltage()?;
         draw_text(
             &mut self.display.display,
             &format!("Battery: {voltage} mV"),
             10,
             40,
         )?;
-        if let Some(event) = self.touch.read_event(&mut self.i2c)? {
+        if let Some(event) = self.touch.read_event()? {
             if event.on_back() {
                 self.state = AppState::Launcher;
             }
@@ -128,7 +128,7 @@ impl<'a> App<'a> {
             10,
             10,
         )?;
-        let battery = self.power.get_battery_percentage(&mut self.i2c)?;
+        let battery = self.power.get_battery_percentage()?;
         draw_text(&mut self.display.display, &format!("{battery}%"), 200, 10)?;
         feed_watchdog();
         Ok(())

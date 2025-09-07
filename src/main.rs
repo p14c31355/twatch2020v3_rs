@@ -15,12 +15,18 @@ use esp_idf_hal::prelude::*;
 use manager::I2cManager;
 use std::panic;
 
+fn init_watchdog() {
+    unsafe {
+        esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
+    }
+}
+
 fn feed_watchdog() {
     unsafe {
-        let _ = esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
         esp_idf_sys::esp_task_wdt_reset();
-    };
+    }
 }
+
 
 fn feed_watchdog_during<F: FnMut()>(mut f: F, steps: u32, delay_ms: u32) {
     for _ in 0..steps {
@@ -35,20 +41,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     esp_idf_svc::log::EspLogger::initialize_default();
     log::set_max_level(log::LevelFilter::Debug);
 
-    panic::set_hook(Box::new(|info| {
-        log::error!("PANIC: {:?}", info);
-        let bt = std::backtrace::Backtrace::force_capture();
-        log::error!("{:?}", bt);
-        println!("PANIC: {:?}", info);
-        println!("{:?}", bt);
-    }));
+    init_watchdog();
 
     let peripherals = Peripherals::take().unwrap();
     let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
-    let power = PowerManager::new();
-    feed_watchdog_during(|| {}, 5, 10);
-
+    // I2C0: Power (AXP202)
     let i2c0_cfg = I2cConfig::new().baudrate(100_000.Hz());
     let i2c0_driver = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
@@ -56,19 +54,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         peripherals.pins.gpio22,
         &i2c0_cfg,
     )?;
-    let i2c0_manager = I2cManager::new(i2c0_driver);
-    feed_watchdog_during(|| {}, 5, 10);
+    let mut i2c0_manager = I2cManager::new(i2c0_driver);
 
-    let i2c1_cfg = I2cConfig::new().baudrate(400_000.Hz());
-    let i2c1_driver = esp_idf_hal::i2c::I2cDriver::new(
-        peripherals.i2c1,
-        peripherals.pins.gpio23,
-        peripherals.pins.gpio32,
-        &i2c1_cfg,
-    )?;
-    let i2c1_manager = I2cManager::new(i2c1_driver);
-    feed_watchdog_during(|| {}, 5, 10);
+    scan_i2c(&mut i2c0_manager);
 
+    // I2C1: Touch
+    // let i2c1_cfg = I2cConfig::new().baudrate(400_000.Hz());
+    // let i2c1_driver = esp_idf_hal::i2c::I2cDriver::new(
+    //     peripherals.i2c1,
+    //     peripherals.pins.gpio23,
+    //     peripherals.pins.gpio32,
+    //     &i2c1_cfg,
+    // )?;
+    // let i2c1_manager = I2cManager::new(i2c1_driver);
+
+    // PowerManager の初期化をここで
+    let mut power = PowerManager::new(i2c0_manager.clone())?;
+    power.set_backlight(true)?;
+
+    FreeRtos::delay_ms(50);
     let display = TwatchDisplay::new(
         peripherals.spi2,
         peripherals.pins.gpio18,
@@ -78,13 +82,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         peripherals.pins.gpio33,
         display_buffer.as_mut(),
     )?;
-    feed_watchdog_during(|| {}, 5, 10);
 
-    let touch = Touch::new()?;
-    feed_watchdog_during(|| {}, 5, 10);
+    let touch = Touch::new(i2c0_manager.clone())?;
 
-    let mut app = App::new(i2c0_manager, display, power?, touch);
-
+    let mut app = App::new(i2c0_manager, display, power, touch);
     app.run()?;
+    Ok(())
+}
+
+fn scan_i2c<T: embedded_hal::i2c::I2c>(i2c: &mut T) -> Result<(), anyhow::Error> {
+    for addr in 0x03..=0x77 {
+    let mut buf = [0u8; 1];
+    if i2c.write_read(addr, &[0x00], &mut buf).is_ok() {
+        println!("Found device at 0x{:02X}", addr);
+    }
+}
+
     Ok(())
 }

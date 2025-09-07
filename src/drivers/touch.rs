@@ -3,8 +3,6 @@ use crate::manager::I2cManager;
 use anyhow::Result;
 use ft6x36::{Dimension, Ft6x36, RawTouchEvent, TouchType};
 
-pub struct Touch;
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TouchEvent {
     Press,
@@ -18,38 +16,33 @@ pub struct TouchPoint {
     pub event: TouchEvent,
 }
 
-impl Touch {
-    pub fn new() -> Result<Self> {
-        Ok(Self)
-    }
+pub struct Touch {
+    driver: Ft6x36<I2cManager>,
 }
 
 impl Touch {
-    pub fn read_event(
-        &mut self,
-        i2c: &mut I2cManager,
-    ) -> Result<Option<TouchPoint>, anyhow::Error> {
-        let mut driver = Ft6x36::new(i2c, Dimension(240, 240));
-        let raw_event: RawTouchEvent = driver
+    pub fn new(i2c: I2cManager) -> Result<Self> {
+        let driver = Ft6x36::new(i2c, Dimension(240, 240));
+        Ok(Self { driver })
+    }
+
+    pub fn read_event(&mut self) -> Result<Option<TouchPoint>> {
+        let raw_event: RawTouchEvent = self.driver
             .get_touch_event()
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        if let Some(ft6x36_touch_point) = raw_event.p1 {
-            let touch_event = match ft6x36_touch_point.touch_type {
+        if let Some(p) = raw_event.p1 {
+            let event = match p.touch_type {
                 TouchType::Press => TouchEvent::Press,
                 TouchType::Release => TouchEvent::Release,
                 TouchType::Contact => TouchEvent::Move,
                 _ => return Ok(None),
             };
 
-            return Ok(Some(TouchPoint {
-                x: ft6x36_touch_point.x,
-                y: ft6x36_touch_point.y,
-                event: touch_event,
-            }));
+            Ok(Some(TouchPoint { x: p.x, y: p.y, event }))
+        } else {
+            Ok(None)
         }
-
-        Ok(None)
     }
 }
 

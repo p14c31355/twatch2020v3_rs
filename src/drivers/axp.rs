@@ -4,40 +4,43 @@ use anyhow::Result;
 use axp20x::{Axpxx, Power, PowerState};
 use esp_idf_hal::delay::FreeRtos;
 
-pub struct PowerManager;
+pub struct PowerManager {
+    axp: Axpxx<I2cManager>,
+}
 
 impl PowerManager {
-    pub fn new() -> Result<Self> {
-        Ok(Self)
+    pub fn new(mut i2c: I2cManager) -> Result<Self> {
+        let mut axp = Axpxx::new(i2c);
+        axp.init().map_err(|e| anyhow::anyhow!("AXP init failed: {:?}", e))?;
+        Ok(Self { axp })
     }
 
-    pub fn init_power(&self, i2c: &mut I2cManager) -> Result<()> {
-        let mut axp = Axpxx::new(i2c);
-        axp.init().map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        Ok(())
-    }
-
-    pub fn set_backlight(&self, i2c: &mut I2cManager, on: bool) -> Result<()> {
-        let mut axp = Axpxx::new(i2c);
+    pub fn set_backlight(&mut self, on: bool) -> Result<()> {
         let mut delay = FreeRtos;
-
         let state = if on { PowerState::On } else { PowerState::Off };
-
-        axp.set_power_output(Power::Ldo2, state, &mut delay)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        self.axp
+            .set_power_output(Power::Ldo2, state, &mut delay)
+            .map_err(|e| anyhow::anyhow!("Failed to set backlight: {:?}", e))?;
         Ok(())
     }
 
-    pub fn get_battery_percentage(&mut self, i2c: &mut I2cManager) -> Result<u8> {
-        let mut axp = Axpxx::new(i2c);
-        axp.get_battery_percentage()
-            .map_err(|e| anyhow::anyhow!("{:?}", e))
+    pub fn get_battery_percentage(&mut self) -> Result<u8> {
+        self.axp
+            .get_battery_percentage()
+            .map_err(|e| anyhow::anyhow!("Failed to read battery percentage: {:?}", e))
     }
 
-    pub fn read_voltage(&mut self, i2c: &mut I2cManager) -> Result<u16> {
-        let mut axp = Axpxx::new(i2c);
-        axp.get_battery_voltage()
+    pub fn read_voltage(&mut self) -> Result<u16> {
+        self.axp
+            .get_battery_voltage()
             .map(|v| v as u16)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))
+            .map_err(|e| anyhow::anyhow!("Failed to read battery voltage: {:?}", e))
+    }
+
+    pub fn set_power(&mut self, channel: Power, state: PowerState) -> Result<()> {
+        let mut delay = FreeRtos;
+        self.axp
+            .set_power_output(channel, state, &mut delay)
+            .map_err(|e| anyhow::anyhow!("Failed to set power channel: {:?}", e))
     }
 }
