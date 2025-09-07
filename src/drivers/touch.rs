@@ -1,7 +1,7 @@
 // src/drivers/touch.rs
-use anyhow::Result;
-use ft6x36::{Ft6x36, RawTouchEvent, Dimension, TouchType};
 use crate::manager::I2cManager;
+use anyhow::Result;
+use ft6x36::{Dimension, Ft6x36, RawTouchEvent, TouchType};
 
 pub struct Touch;
 
@@ -24,11 +24,15 @@ impl Touch {
     }
 }
 
-impl Touch
-{
-    pub fn read_event(&mut self, i2c: &mut I2cManager) -> Result<Option<TouchPoint>, anyhow::Error> {
+impl Touch {
+    pub fn read_event(
+        &mut self,
+        i2c: &mut I2cManager,
+    ) -> Result<Option<TouchPoint>, anyhow::Error> {
         let mut driver = Ft6x36::new(i2c, Dimension(240, 240));
-        let raw_event: RawTouchEvent = driver.get_touch_event().map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        let raw_event: RawTouchEvent = driver
+            .get_touch_event()
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         if let Some(ft6x36_touch_point) = raw_event.p1 {
             let touch_event = match ft6x36_touch_point.touch_type {

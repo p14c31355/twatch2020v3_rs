@@ -1,7 +1,7 @@
 // src/drivers/axp.rs
+use crate::manager::I2cManager;
 use anyhow::Result;
 use axp20x::{Axpxx, Power, PowerState};
-use crate::manager::I2cManager;
 use esp_idf_hal::delay::FreeRtos;
 
 pub struct PowerManager;

@@ -1,17 +1,20 @@
 // src/drivers/display.rs
 use anyhow::Result;
+use embedded_graphics::{
+    pixelcolor::Rgb565,
+    prelude::*,
+    primitives::{PrimitiveStyle, Rectangle},
+};
 use esp_idf_hal::{
     delay::FreeRtos,
-    gpio::{Gpio27, Gpio33, Output, PinDriver, AnyIOPin},
-    spi::{SPI2, SpiDriver, SpiDeviceDriver, config::{Config as SpiConfig, DriverConfig as SpiDriverConfig}},
+    gpio::{AnyIOPin, Gpio27, Gpio33, Output, PinDriver},
+    spi::{
+        SPI2, SpiDeviceDriver, SpiDriver,
+        config::{Config as SpiConfig, DriverConfig as SpiDriverConfig},
+    },
     units::FromValueType,
 };
-use mipidsi::{Builder, Display, models::ST7789, interface::SpiInterface, options::ColorOrder};
-use embedded_graphics::{
-    prelude::*,
-    pixelcolor::Rgb565,
-    primitives::{Rectangle, PrimitiveStyle},
-};
+use mipidsi::{Builder, Display, interface::SpiInterface, models::ST7789, options::ColorOrder};
 
 pub struct TwatchDisplay<'a> {
     pub display: Display<

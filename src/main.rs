@@ -1,23 +1,22 @@
 // main.rs
 mod app;
-mod manager;
 mod drivers;
+mod manager;
 
 use anyhow::Result;
-use esp_idf_hal::prelude::*;
-use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::i2c::I2cConfig;
-use drivers::display::TwatchDisplay;
-use manager::I2cManager;
 use app::App;
 use drivers::axp::PowerManager;
+use drivers::display::TwatchDisplay;
 use drivers::touch::Touch;
+use esp_idf_hal::i2c::I2cConfig;
+use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::prelude::*;
+use manager::I2cManager;
 
 use std::panic;
-use esp_idf_hal::task::watchdog::{TWDTDriver, TWDTConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // ESP-IDF 初期化
+    // ESP-IDF init
     esp_idf_sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     log::set_max_level(log::LevelFilter::Debug);
@@ -34,10 +33,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Peripherals
     let peripherals = Peripherals::take().unwrap();
 
-    // Display 初期化
+    // Display buf init
     let mut display_buffer = Box::new([0u8; 240 * 240 * 2]);
 
-    // I2C 初期化
+    // I2C init
     let i2c_cfg = I2cConfig::new().baudrate(400_000.Hz());
     let i2c_hal_driver = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
@@ -61,15 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let power = PowerManager::new()?;
     let touch = Touch::new()?;
 
-    // TWDT 初期化
-    let twdt_config = TWDTConfig {
-        duration: std::time::Duration::from_secs(10),
-        ..Default::default()
-    };
-    let mut twdt_driver = TWDTDriver::new(peripherals.twdt, &twdt_config)?;
-
-    // アプリ初期化
-    let mut app = App::new(i2c_manager, display, power, touch, &mut twdt_driver)?;
+    // App init
+    let mut app = App::new(i2c_manager, display, power, touch);
 
     app.run()?; // main loop
     Ok(())
