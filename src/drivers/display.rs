@@ -76,7 +76,9 @@ impl<'a> TwatchDisplay<'a> {
         D: embedded_graphics::Drawable<Color = Rgb565>,
     {
         FreeRtos::delay_ms(1);
-        drawable.draw(&mut self.display).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        drawable
+            .draw(&mut self.display)
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(())
     }
 

@@ -8,15 +8,18 @@ use app::App;
 use drivers::axp::PowerManager;
 use drivers::display::TwatchDisplay;
 use drivers::touch::Touch;
-use esp_idf_hal::i2c::I2cConfig;
-use esp_idf_hal::prelude::*;
-use esp_idf_hal::peripherals::Peripherals;
-use manager::I2cManager;
 use esp_idf_hal::delay::FreeRtos;
+use esp_idf_hal::i2c::I2cConfig;
+use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::prelude::*;
+use manager::I2cManager;
 use std::panic;
 
 fn feed_watchdog() {
-    unsafe { esp_idf_sys::esp_task_wdt_reset() };
+    unsafe {
+        let _ = esp_idf_sys::esp_task_wdt_add(core::ptr::null_mut());
+        esp_idf_sys::esp_task_wdt_reset();
+    };
 }
 
 fn feed_watchdog_during<F: FnMut()>(mut f: F, steps: u32, delay_ms: u32) {
